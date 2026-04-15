@@ -5,7 +5,6 @@ class Engine:
     def __init__(self, width, height):
         self.width = width
         self.height = height
-        # Matriz de pixels (Buffer de cor) - Requisito: Exibição de matrizes [cite: 15]
         self.pixel_matrix = np.zeros((height, width, 3), dtype=np.uint8)
 
     def set_pixel(self, x, y, color):
