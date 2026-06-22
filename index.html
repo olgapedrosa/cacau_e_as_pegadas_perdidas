@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cacau e as Pegadas Perdidas — Passeio Virtual 3D</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <canvas id="glcanvas"></canvas>
+
+  <div id="hud">
+    <div id="zone-label">Quintal</div>
+    <div id="controls-hint">
+      W A S D — andar &nbsp;|&nbsp; Mouse — olhar &nbsp;|&nbsp; Siga as pegadas no chão
+    </div>
+  </div>
+
+  <div id="narrative-text"></div>
+
+  <div id="start-screen">
+    <div class="panel">
+      <h1>Cacau e as Pegadas Perdidas</h1>
+      <p class="subtitle">Um passeio virtual narrativo em 3D</p>
+      <p class="desc">
+        Você é o dono da gata Cacau. Ela desapareceu esta manhã e deixou pegadas pelo caminho.
+        Siga-as pelo quintal, jardim, bosque e lago até encontrá-la.
+      </p>
+      <button id="start-btn">Começar o passeio</button>
+      <p class="controls">W A S D para andar · Mouse para olhar</p>
+    </div>
+  </div>
+
+  <div id="end-screen">
+    <div class="panel">
+      <h1>Fim</h1>
+      <p class="subtitle">Cacau está em casa, segura e feliz.</p>
+      <p class="desc">Obrigado por seguir as pegadas até o final.</p>
+    </div>
+  </div>
+
+  <script src="js/gl/math.js"></script>
+  <script src="js/gl/shaders.js"></script>
+  <script src="js/gl/camera.js"></script>
+  <script src="js/gl/renderer.js"></script>
+  <script src="js/world/geometry.js"></script>
+  <script src="js/world/textures.js"></script>
+  <script src="js/world/cat.js"></script>
+  <script src="js/world/scene.js"></script>
+  <script src="js/game/narrative.js"></script>
+  <script src="js/game/input.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,152 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: #1a1a2e;
+}
+
+#glcanvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+}
+
+#hud {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+
+#zone-label {
+  margin: 16px 20px;
+  padding: 8px 16px;
+  display: inline-block;
+  background: rgba(0, 0, 0, 0.45);
+  color: #f0e6d3;
+  border-radius: 6px;
+  font-size: 14px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+#controls-hint {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 20px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #ccc;
+  border-radius: 8px;
+  font-size: 13px;
+  opacity: 0;
+  transition: opacity 0.8s ease;
+}
+
+#controls-hint.visible {
+  opacity: 1;
+}
+
+#narrative-text {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 600px;
+  padding: 16px 28px;
+  background: rgba(20, 15, 10, 0.75);
+  color: #f5ead8;
+  border-radius: 10px;
+  font-size: 17px;
+  line-height: 1.5;
+  text-align: center;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+  pointer-events: none;
+  z-index: 20;
+}
+
+#narrative-text.visible {
+  opacity: 1;
+}
+
+#start-screen,
+#end-screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 8, 6, 0.82);
+  z-index: 100;
+}
+
+#end-screen {
+  display: none;
+}
+
+#end-screen.visible {
+  display: flex;
+}
+
+#start-screen.hidden {
+  display: none;
+}
+
+.panel {
+  text-align: center;
+  max-width: 520px;
+  padding: 40px;
+  color: #f0e6d3;
+}
+
+.panel h1 {
+  font-size: 2rem;
+  margin-bottom: 8px;
+  color: #e8c49a;
+}
+
+.panel .subtitle {
+  font-size: 1.1rem;
+  color: #b8a88a;
+  margin-bottom: 20px;
+}
+
+.panel .desc {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: #c8baa0;
+  margin-bottom: 28px;
+}
+
+.panel .controls {
+  margin-top: 16px;
+  font-size: 0.85rem;
+  color: #888;
+}
+
+#start-btn {
+  padding: 14px 36px;
+  font-size: 1rem;
+  background: #8B5A2B;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+#start-btn:hover {
+  background: #a06b35;
+}
