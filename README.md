@@ -116,4 +116,4 @@ http://localhost:8080
 
 ## Licença
 
-Projeto acadêmico — Computação Gráfica, UFPE (ou sua instituição), 2026.1.
+Projeto acadêmico — Computação Gráfica, UECE, 2026.1.
