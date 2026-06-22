@@ -97,10 +97,8 @@ http://localhost:8080
 
 ## Equipe
 
-<!-- Preencha com os nomes dos integrantes -->
-- Nome 1
-- Nome 2
-- Nome 3
+- Olga Pedrosa de Sousa
+- Marília Milfont Rangel Lima
 
 ## Links
 
