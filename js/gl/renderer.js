@@ -104,16 +104,17 @@ class Renderer {
 
   clear(zone) {
     const gl = this.gl;
+    // Céu azul claro para quintal (zona 0-1)
     const skyTop = zone >= 4
-      ? [0.55, 0.75, 0.95]
+      ? [0.5, 0.8, 0.95]    // Azul puro no campo final
       : zone >= 2
-        ? [0.35, 0.5, 0.65]
-        : [0.45, 0.65, 0.9];
+        ? [0.2, 0.4, 0.6]   // Azul mais escuro na floresta
+        : [0.3, 0.65, 1.0]; // Azul intenso no quintal
     const skyBottom = zone >= 4
-      ? [0.75, 0.85, 0.6]
+      ? [0.9, 0.9, 0.3]     // Horizonte dourado
       : zone >= 2
-        ? [0.2, 0.3, 0.25]
-        : [0.6, 0.75, 0.55];
+        ? [0.1, 0.2, 0.25]  // Horizonte escuro
+        : [0.6, 0.8, 1.0];  // Horizonte azul claro
     gl.clearColor(skyBottom[0], skyBottom[1], skyBottom[2], 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     this._skyTop = skyTop;

@@ -4,13 +4,21 @@
   const zoneLabel = document.getElementById('zone-label');
   const startBtn = document.getElementById('start-btn');
 
-  const renderer = new Renderer(canvas);
-  const camera = new FirstPersonCamera();
-  const input = new Input(canvas);
-  const narrative = new Narrative();
-  const scene = new Scene(renderer.gl);
+  let renderer, camera, input, narrative, scene;
 
-  renderer.setSkyMesh(scene.getSkyMesh().vao);
+  try {
+    renderer = new Renderer(canvas);
+    camera = new FirstPersonCamera();
+    input = new Input(canvas);
+    narrative = new Narrative();
+    scene = new Scene(renderer.gl);
+
+    renderer.setSkyMesh(scene.getSkyMesh().vao);
+  } catch (e) {
+    console.error('Erro ao inicializar:', e);
+    document.body.innerHTML = '<h1>Erro: WebGL 2 não suportado ou falha na inicialização</h1>';
+    return;
+  }
 
   let lastTime = performance.now();
 

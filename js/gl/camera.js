@@ -1,9 +1,9 @@
 /** Câmera em primeira pessoa com projeção perspectiva. */
 class FirstPersonCamera {
   constructor() {
-    this.position = Vec3.create(0, 1.7, 8);
-    this.yaw = -Math.PI / 2;
-    this.pitch = -0.15;
+    this.position = Vec3.create(-10, 2.5, 6);
+    this.yaw = 0.2;
+    this.pitch = -0.3;
     this.speed = 6.0;
     this.mouseSensitivity = 0.002;
     this.fov = Math.PI / 3;

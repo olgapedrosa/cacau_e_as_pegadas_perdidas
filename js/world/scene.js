@@ -103,36 +103,146 @@ class Scene {
   }
 
   _buildQuintal() {
-    this._texBox(8, 4, 6, this.textures.brick, -6, 2, 2);
-    this._texBox(8, 0.3, 6.2, this.textures.wood, -6, 4.15, 2);
-    this._texBox(1.5, 2.5, 0.15, this.textures.wood, -2.2, 1.25, 4.8);
+    // ====== CASA ======
+    // Corpo principal da casa (mais largo)
+    this._texBox(10, 4.5, 7, this.textures.brick, -6, 2.25, 2.5);
+    
+    // Telhado (três componentes para forma triangular)
+    this._texBox(10.5, 0.4, 7.5, this.textures.wood, -6, 4.5, 2.5);
+    
+    // Parede frontal esquerda com janela
+    const wallL = this._texBox(3, 2.5, 0.3, this.textures.brick, -8, 3, 6);
+    
+    // Janela (cor sólida, vidro azul)
+    const windowL = this._solidBox(1.2, 1, 0.1, [0.4, 0.7, 0.95], -8.2, 3.5, 6.2);
+    
+    // Porta da casa (marrom)
+    const door = this._solidBox(1, 2.2, 0.2, [0.4, 0.25, 0.1], -3.5, 1.1, 6.1);
+    
+    // Maçaneta da porta (dourada)
+    const doorHandle = this._solidBox(0.08, 0.08, 0.15, [0.9, 0.8, 0.3], -2.8, 1, 6.3);
+    
+    // Chaminé (tijolos)
+    this._texBox(0.6, 2, 0.6, this.textures.brick, -8.5, 4.5, 2);
+    
+    // Entrada (degraus)
+    this._solidBox(1.5, 0.15, 0.5, [0.5, 0.35, 0.2], -3.5, 0.15, 5.8);
+    this._solidBox(1.5, 0.1, 0.4, [0.55, 0.4, 0.25], -3.5, 0.3, 5.5);
 
-    this._tree(5, 0, 0.9);
-    this._tree(-3, -3, 1.1);
-    this._tree(8, -5, 0.8);
+    // ====== ÁRVORES (maiores e mais visíveis) ======
+    this._tree(6, 1, 1.3);      // Direita frontal
+    this._tree(-7, 0, 1.4);     // Esquerda frontal
+    this._tree(9, -4, 1.1);     // Canto direito
+    this._tree(-9, -4, 1.2);    // Canto esquerdo
+    this._tree(3, -6, 0.95);    // Centro fundo
 
-    this._fence(-12, -8, 24, true);
-    this._fence(-12, 8, 24, true);
-    this._fence(-12, -8, 16, false);
-    this._fence(12, -8, 16, false);
+    // ====== CERCA ROBUSTA ======
+    // Lado frontal (X)
+    this._fence(-14, -8, 28, true);
+    // Lado traseiro (X)
+    this._fence(-14, 8, 28, true);
+    // Lado esquerdo (Z)
+    this._fence(-14, -8, 16, false);
+    // Lado direito (Z)
+    this._fence(14, -8, 16, false);
 
-    const gateL = this._solidBox(0.15, 1.5, 1.5, [0.4, 0.25, 0.1], 0.5, 0.75, -8);
-    const gateR = this._solidBox(0.15, 1.5, 1.5, [0.4, 0.25, 0.1], -0.5, 0.75, -8);
-    gateL.setRotation(0, -0.8, 0);
-    gateR.setRotation(0, 0.8, 0);
+    // Rails adicionais para reforço (mais realista)
+    for (let i = -12; i <= 12; i += 3) {
+      this._solidBox(0.08, 0.6, 0.08, [0.5, 0.32, 0.14], i, 1.3, -8);
+      this._solidBox(0.08, 0.6, 0.08, [0.5, 0.32, 0.14], i, 1.3, 8);
+    }
+    for (let i = -6; i <= 6; i += 3) {
+      this._solidBox(0.08, 0.6, 0.08, [0.5, 0.32, 0.14], -14, 1.3, i);
+      this._solidBox(0.08, 0.6, 0.08, [0.5, 0.32, 0.14], 14, 1.3, i);
+    }
 
-    const toy = createGLMesh(this.gl, Geometry.sphere(0.25, 8, 6));
-    toy.solidColor = new Float32Array([0.9, 0.2, 0.2, 1]);
-    toy.setPosition(3, 0.25, -2);
-    this._add(toy);
+    // ====== PORTÃO (aberto) ======
+    const gateL = this._solidBox(0.2, 1.8, 2, [0.35, 0.2, 0.08], 1, 0.9, -8);
+    const gateR = this._solidBox(0.2, 1.8, 2, [0.35, 0.2, 0.08], -1, 0.9, -8);
+    gateL.setRotation(0, -1.2, 0);  // Aberto para direita
+    gateR.setRotation(0, 1.2, 0);   // Aberto para esquerda
+    
+    // Dobradiças do portão
+    this._solidBox(0.1, 0.3, 0.1, [0.6, 0.5, 0.3], 1.1, 0.9, -7.9);
+    this._solidBox(0.1, 0.3, 0.1, [0.6, 0.5, 0.3], 1.1, 1.7, -7.9);
+    this._solidBox(0.1, 0.3, 0.1, [0.6, 0.5, 0.3], -1.1, 0.9, -7.9);
+    this._solidBox(0.1, 0.3, 0.1, [0.6, 0.5, 0.3], -1.1, 1.7, -7.9);
 
-    const toyStick = this._solidBox(0.05, 0.6, 0.05, [0.6, 0.5, 0.3], 3, 0.3, -2);
-    toyStick.setRotation(0.3, 0, 0.2);
+    // ====== BRINQUEDOS ======
+    // Bola vermelha grande
+    const ballRed = createGLMesh(this.gl, Geometry.sphere(0.4, 12, 8));
+    ballRed.solidColor = new Float32Array([0.95, 0.15, 0.15, 1]);
+    ballRed.setPosition(4, 0.4, -1);
+    this._add(ballRed);
 
+    // Bastão de brinquedo (perto da bola)
+    const stick = this._solidBox(0.06, 0.8, 0.06, [0.7, 0.55, 0.35], 4.5, 0.4, -1.5);
+    stick.setRotation(0.4, 0, 0.3);
+
+    // Bola azul (canto)
+    const ballBlue = createGLMesh(this.gl, Geometry.sphere(0.3, 10, 8));
+    ballBlue.solidColor = new Float32Array([0.2, 0.4, 0.95, 1]);
+    ballBlue.setPosition(-5, 0.3, -3);
+    this._add(ballBlue);
+
+    // Pote de ração (vermelho, tombado)
+    const potRed = createGLMesh(this.gl, Geometry.cylinder(0.35, 0.2, 12));
+    potRed.solidColor = new Float32Array([0.75, 0.2, 0.15, 1]);
+    potRed.setPosition(0, 0.1, -4);
+    potRed.setRotation(0.8, 0, 0.2);
+    this._add(potRed);
+
+    // Osso de brinquedo (amarelo claro)
+    const bone = createGLMesh(this.gl, Geometry.sphere(0.15, 8, 6));
+    bone.solidColor = new Float32Array([0.95, 0.9, 0.7, 1]);
+    bone.setPosition(-3, 0.15, -2);
+    this._add(bone);
+
+    // Corda de brinquedo (verde)
+    const rope = createGLMesh(this.gl, Geometry.cylinder(0.05, 0.6, 8));
+    rope.solidColor = new Float32Array([0.3, 0.7, 0.3, 1]);
+    rope.setPosition(2, 0.3, -5);
+    rope.setRotation(0.3, 0, 0.2);
+    this._add(rope);
+
+    // Anel/disco (laranja)
+    const disc = createGLMesh(this.gl, Geometry.cylinder(0.4, 0.08, 16));
+    disc.solidColor = new Float32Array([0.95, 0.65, 0.2, 1]);
+    disc.setPosition(-4, 0.3, 2);
+    this._add(disc);
+
+    // ====== PISTA DE PEGADAS ======
+    // Pegadas maiores e mais visíveis no chão do quintal
+    const pawTrail = [
+      [-2, 3], [0, 1.5], [1.5, -0.5], [1, -2.5], [0.2, -4.5],
+      [-1, -6], [-2, -7.5], [-1.5, -9.5], [0.5, -10.5]
+    ];
+    for (let i = 0; i < pawTrail.length; i++) {
+      const [x, z] = pawTrail[i];
+      const paw = createGLMesh(this.gl, Geometry.pawPrint());
+      paw.solidColor = new Float32Array([0.3, 0.2, 0.15, 0.85]);
+      paw.setPosition(x, 0.02, z);
+      paw.setRotation(0, (i % 2 === 0 ? 0.15 : -0.15), 0);
+      paw.setScale(1.5, 0.4, 1.5);
+      paw.shininess = 3;
+      this._add(paw);
+    }
+
+    // ====== TRIGGERS (mensagens contextuais) ======
     this.triggers.push({
-      pos: [3, 0, -2], radius: 3,
-      text: 'O brinquedo favorito da Cacau ainda está aqui...',
-      once: true, id: 'toy',
+      pos: [4, 0, -1], radius: 3,
+      text: 'Seus brinquedos... onde você está, Cacau?',
+      once: true, id: 'toys',
+    });
+    this.triggers.push({
+      pos: [-6, 0, 2.5], radius: 4,
+      text: 'A casa está quieta... ela deveria estar tomando sol aqui.',
+      once: true, id: 'house',
+    });
+    this.triggers.push({
+      pos: [0, 0, -5], radius: 3,
+      text: 'As pegadas começam aqui! Vou seguir...',
+      once: true, id: 'trail_start',
     });
   }
 
