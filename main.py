@@ -2,7 +2,7 @@
 CACAU E AS PEGADAS PERDIDAS
 Passeio Virtual 3D em OpenGL 4.0
 
-Mapa: Quintal → Rua → Cacau
+Mapa: Quintal amplo (seguir pegadas até encontrar a Cacau)
 Controles: WASD/Setas + Mouse | ESC para sair
 """
 
@@ -26,29 +26,69 @@ WINDOW_WIDTH = 1200
 WINDOW_HEIGHT = 800
 FPS = 60
 
-# Posição da Cacau no final da rua
-CACAU_POS = np.array([0.0, 0.0, 44.0], dtype=np.float32)
+# Cacau escondida no fundo do quintal, ao fim das pegadas
+CACAU_POS = np.array([13.0, 0.0, 9.0], dtype=np.float32)
 WIN_DISTANCE = 3.0
 
-# Caminho das pegadas: quintal (z negativo) → rua (z positivo)
-FOOTPRINTS = []
-for i in range(8):
-    z = -12 + i * 1.5
-    offset = 0.2 if i % 2 == 0 else -0.2
-    FOOTPRINTS.append((offset, 0.04, z))
-    FOOTPRINTS.append((-offset, 0.04, z + 0.35))
+# Limites do quintal expandido
+YARD_X_MIN, YARD_X_MAX = -20, 20
+YARD_Z_MIN, YARD_Z_MAX = -22, 14
 
-for i in range(22):
-    z = 1.5 + i * 1.9
-    offset = 0.18 if i % 2 == 0 else -0.18
-    FOOTPRINTS.append((offset, 0.04, z))
-    FOOTPRINTS.append((-offset, 0.04, z + 0.35))
+# Caminho sinuoso das pegadas pelo quintal (waypoints x, z)
+FOOTPRINT_WAYPOINTS = [
+    (0, -6), (3, -4), (7, -2), (9, 2), (7, 7), (3, 10),
+    (-2, 12), (-7, 10), (-11, 6), (-10, 0), (-6, -5),
+    (-1, -9), (4, -11), (10, -8), (14, -3), (15, 3), (13, 9),
+]
+
+# Vegetação espalhada (x, z)
+TREE_SPOTS = [
+    (-14, -8), (12, -12), (16, 0), (-15, 4), (8, 12),
+    (-10, 14), (0, -14), (-12, -16), (-8, 8), (6, 4),
+]
+BUSH_SPOTS = [
+    (4, -7), (-2, 5), (9, 5), (-9, -3), (1, 8),
+    (-5, -12), (11, -5), (-13, 0), (5, -2), (-3, -8),
+]
 
 # Cerca de madeira (postes + barras)
 FENCE_COLOR = (160, 100, 50)
 FENCE_POST_SCALE = (0.15, 1.5, 0.15)
 FENCE_BAR_THICK = 0.1
 FENCE_POST_STEP = 2.0
+
+
+def build_yard_footprints(waypoints, step_dist=0.65, lateral=0.16):
+    """Gera pares de pegadas ao longo de waypoints com curvas e mudanças de direção."""
+    footprints = []
+    for i in range(len(waypoints) - 1):
+        x0, z0 = waypoints[i]
+        x1, z1 = waypoints[i + 1]
+        dx, dz = x1 - x0, z1 - z0
+        length = math.hypot(dx, dz)
+        if length < 1e-6:
+            continue
+
+        steps = max(1, int(length / step_dist))
+        heading = math.degrees(math.atan2(dx, dz))
+        perp_x, perp_z = -dz / length, dx / length
+
+        for s in range(steps):
+            t = (s + 0.5) / steps
+            x = x0 + dx * t
+            z = z0 + dz * t
+            forward = 0.18
+            footprints.append((x + perp_x * lateral, 0.04, z + perp_z * lateral, heading))
+            footprints.append((
+                x - perp_x * lateral,
+                0.04,
+                z - perp_z * lateral + forward,
+                heading,
+            ))
+    return footprints
+
+
+FOOTPRINTS = build_yard_footprints(FOOTPRINT_WAYPOINTS)
 
 
 def rotation_y(degrees):
@@ -118,10 +158,10 @@ class SceneRenderer:
         self.program = shaders.create_program()
         glUseProgram(self.program)
 
-        # Jogador começa no quintal, olhando para as pegadas (+Z)
-        self.camera = camera.Camera(position=(0, 1.6, -9))
-        self.camera.yaw = 90.0
-        self.camera.pitch = -5.0
+        # Jogador começa no quintal, olhando para as pegadas
+        self.camera = camera.Camera(position=(0, 1.6, -8))
+        self.camera.yaw = 75.0
+        self.camera.pitch = -8.0
         self.camera.update_vectors()
 
         self.clock = pygame.time.Clock()
@@ -142,8 +182,6 @@ class SceneRenderer:
         images = os.path.join(base_dir, "images")
 
         self.grass_texture = Texture(image_path=os.path.join(images, "grama.png"))
-        self.asphalt_texture = Texture(image_path=os.path.join(images, "asfalto.png"))
-        self.tree_texture = Texture(image_path=os.path.join(images, "arvore.png"))
         self.footprint_texture = Texture(
             image_path=os.path.join(images, "pegada.png"),
             transparent_black=True,
@@ -320,36 +358,38 @@ class SceneRenderer:
         for i in range(len(posts) - 1):
             self._render_fence_bars_along_z(x, posts[i], posts[i + 1])
 
-    def render_fence(self):
-        """
-        Cerca do quintal: perímetro, divisão com a rua (portão aberto)
-        e contorno ao redor da casa.
-        """
-        # Fundo do quintal (z ≈ -15)
-        self._render_fence_along_x(-14.5, -10, 10)
-
-        # Lados do quintal
-        self._render_fence_along_z(-9.8, -14.5, 0)
-        self._render_fence_along_z(9.8, -14.5, 0)
-
-        # Divisão quintal | rua — abertura central para o caminho das pegadas
-        self._render_fence_along_x(0, -10, -2.5)
-        self._render_fence_along_x(0, 2.5, 10)
-
-        # Postes do portão
-        self._render_fence_post(-2.5, 1.0, 0)
-        self._render_fence_post(2.5, 1.0, 0)
-
-        # Portão aberto (painel lateral)
+    def _render_tree(self, x, z, trunk_h=2.4, crown_size=1.6):
+        """Árvore simples: tronco + copa."""
         self.render_object(
             self.cube_mesh,
-            position=(2.5, 1.0, 0.6),
-            scale=(0.15, 1.5, 1.2),
-            color=FENCE_COLOR,
-            rotation=(0, 30, 0),
+            position=(x, trunk_h / 2, z),
+            scale=(0.35, trunk_h, 0.35),
+            color=(101, 67, 33),
+        )
+        self.render_object(
+            self.cube_mesh,
+            position=(x, trunk_h + crown_size / 2 - 0.2, z),
+            scale=(crown_size, crown_size, crown_size),
+            color=(34, 120, 45),
         )
 
-        # Cerca ao redor da casa (centro em -6, -11; aberta para o quintal ao sul)
+    def _render_bush(self, x, z, size=0.55):
+        """Arbusto baixo e arredondado."""
+        self.render_object(
+            self.sphere_mesh,
+            position=(x, size * 0.45, z),
+            scale=(size, size * 0.7, size),
+            color=(45, 135, 55),
+        )
+
+    def render_fence(self):
+        """Cerca em torno do quintal expandido e contorno parcial da casa."""
+        self._render_fence_along_x(YARD_Z_MIN, YARD_X_MIN, YARD_X_MAX)
+        self._render_fence_along_x(YARD_Z_MAX, YARD_X_MIN, YARD_X_MAX)
+        self._render_fence_along_z(YARD_X_MIN, YARD_Z_MIN, YARD_Z_MAX)
+        self._render_fence_along_z(YARD_X_MAX, YARD_Z_MIN, YARD_Z_MAX)
+
+        # Cerca ao redor da casa (aberta para o quintal ao sul)
         self._render_fence_along_x(-14.2, -9.5, -2.8)
         self._render_fence_along_z(-9.5, -14.2, -8.5)
 
@@ -405,12 +445,12 @@ class SceneRenderer:
         glDisable(GL_POLYGON_OFFSET_FILL)
 
     def render_quintal(self):
-        """Área 1 — Quintal com grama, casa, pote e pegadas iniciais."""
-        # Chão de grama (textura obrigatória)
+        """Quintal amplo com grama, casa, vegetação e cerca."""
+        # Chão de grama expandido
         self.render_object(
             self.plane_mesh,
-            position=(0, 0, -7),
-            scale=(0.4, 1, 0.32),
+            position=(0, 0, -2),
+            scale=(0.9, 1, 1.5),
             color=(100, 150, 80),
             texture=self.grass_texture,
             use_texture=True,
@@ -418,7 +458,7 @@ class SceneRenderer:
 
         self.render_house()
 
-        # Pote de ração — mais afastado da casa, no centro do quintal
+        # Pote de ração perto da casa
         self.render_object(
             self.cube_mesh,
             position=(2.5, 0.15, -5.5),
@@ -426,64 +466,16 @@ class SceneRenderer:
             color=(220, 80, 60),
         )
 
-        # Cerca: perímetro do quintal, portão para a rua e contorno da casa
+        for tx, tz in TREE_SPOTS:
+            self._render_tree(tx, tz)
+
+        for bx, bz in BUSH_SPOTS:
+            self._render_bush(bx, bz)
+
         self.render_fence()
 
-    def render_rua(self):
-        """Área 2 — Rua reta com asfalto, calçadas, postes e árvores."""
-        # Asfalto
-        self.render_object(
-            self.plane_mesh,
-            position=(0, 0.01, 25),
-            scale=(0.16, 1, 1.0),
-            color=(80, 80, 85),
-            texture=self.asphalt_texture,
-            use_texture=True,
-        )
-
-        # Calçadas laterais
-        for side in (-1, 1):
-            self.render_object(
-                self.plane_mesh,
-                position=(side * 4.5, 0.02, 25),
-                scale=(0.06, 1, 1.0),
-                color=(190, 190, 185),
-            )
-
-        # Postes — cubos finos cinza (cor sólida)
-        for z in (8, 18, 28, 38):
-            self.render_object(
-                self.cube_mesh,
-                position=(5.5, 2.5, z),
-                scale=(0.15, 5.0, 0.15),
-                color=(140, 140, 145),
-            )
-            # Braço do poste
-            self.render_object(
-                self.cube_mesh,
-                position=(5.2, 4.8, z),
-                scale=(0.8, 0.12, 0.12),
-                color=(130, 130, 135),
-            )
-
-        # Árvores simples ao longo da rua
-        tree_spots = [(-6, 10), (6, 16), (-6, 24), (6, 32), (-6, 40)]
-        for tx, tz in tree_spots:
-            self.render_object(
-                self.cube_mesh,
-                position=(tx, 1.2, tz),
-                scale=(0.35, 2.4, 0.35),
-                color=(101, 67, 33),
-            )
-            self.render_object(
-                self.cube_mesh,
-                position=(tx, 3.2, tz),
-                scale=(1.6, 1.6, 1.6),
-                color=(34, 120, 45),
-            )
-
-    def _draw_footprint(self, fp_x, fp_y, fp_z, flip_x=False):
-        """Pegada no chão: quad horizontal com textura transparente."""
+    def _draw_footprint(self, fp_x, fp_y, fp_z, heading=0.0, flip_x=False):
+        """Pegada no chão com rotação conforme a direção do caminho."""
         scale_x = -1.0 if flip_x else 1.0
         glDisable(GL_CULL_FACE)
         glEnable(GL_POLYGON_OFFSET_FILL)
@@ -496,35 +488,26 @@ class SceneRenderer:
             color=(255, 255, 255),
             texture=self.footprint_texture,
             use_texture=True,
+            rotation=(0, heading, 0),
         )
 
         glDisable(GL_POLYGON_OFFSET_FILL)
         glEnable(GL_CULL_FACE)
 
     def render_footprints(self):
-        """Pegadas na rua."""
-        for i, (fp_x, fp_y, fp_z) in enumerate(FOOTPRINTS):
-            if fp_z < 0:
-                continue
-            self._draw_footprint(fp_x, fp_y, fp_z, flip_x=(i % 2 == 1))
-
-    def render_quintal_footprints(self):
-        """Pegadas no quintal."""
-        for i, (fp_x, fp_y, fp_z) in enumerate(FOOTPRINTS):
-            if fp_z >= 0:
-                continue
-            self._draw_footprint(fp_x, fp_y, fp_z, flip_x=(i % 2 == 1))
+        """Pegadas sinuosas espalhadas pelo quintal."""
+        for i, fp in enumerate(FOOTPRINTS):
+            fp_x, fp_y, fp_z, heading = fp
+            self._draw_footprint(fp_x, fp_y, fp_z, heading=heading, flip_x=(i % 2 == 1))
 
     def render_scene(self):
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         glUseProgram(self.program)
 
         self.render_quintal()
-        self.render_quintal_footprints()
-        self.render_rua()
         self.render_footprints()
 
-        # Cacau no final da rua (animação da cauda)
+        # Cacau escondida no fim do caminho de pegadas
         cat.render_cacau(self, (CACAU_POS[0], CACAU_POS[1], CACAU_POS[2]), self.time_sec)
 
         # Sol (representação visual da luz)
