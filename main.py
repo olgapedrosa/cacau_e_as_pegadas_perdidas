@@ -186,6 +186,8 @@ class SceneRenderer:
             image_path=os.path.join(images, "pegada.png"),
             transparent_black=True,
         )
+        self.fence_texture = Texture(image_path=os.path.join(images, "cerca.png"))
+        self.cat_texture = Texture(image_path=os.path.join(images, "gato.png"))
 
         self.cube_mesh = objects.get_cube()
         self.sphere_mesh = objects.get_sphere()
