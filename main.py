@@ -186,8 +186,17 @@ class SceneRenderer:
             image_path=os.path.join(images, "pegada.png"),
             transparent_black=True,
         )
-        self.fence_texture = Texture(image_path=os.path.join(images, "cerca.png"))
+        self.wall_texture = Texture(image_path=os.path.join(images, "parede.png"))
         self.cat_texture = Texture(image_path=os.path.join(images, "gato.png"))
+
+        # Permitir repetição para a textura do muro
+        try:
+            glBindTexture(GL_TEXTURE_2D, self.wall_texture.texture_id)
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT)
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT)
+            glBindTexture(GL_TEXTURE_2D, 0)
+        except Exception:
+            pass
 
         self.cube_mesh = objects.get_cube()
         self.sphere_mesh = objects.get_sphere()
@@ -263,6 +272,7 @@ class SceneRenderer:
         color=(200, 200, 200),
         texture=None,
         use_texture=False,
+        texture_scale=(1.0, 1.0),
         rotation=(0, 0, 0),
     ):
         model = make_model_matrix(position, scale, rotation)
@@ -288,9 +298,16 @@ class SceneRenderer:
         )
         glUniform1i(glGetUniformLocation(self.program, "useTexture"), 1 if use_texture else 0)
 
+        # Texture scale / tiling (default 1,1)
+        tex_scale_loc = glGetUniformLocation(self.program, "texScale")
         if texture and use_texture:
             texture.bind()
             glUniform1i(glGetUniformLocation(self.program, "texture1"), 0)
+            if tex_scale_loc != -1:
+                glUniform2f(tex_scale_loc, float(texture_scale[0]), float(texture_scale[1]))
+        else:
+            if tex_scale_loc != -1:
+                glUniform2f(tex_scale_loc, 1.0, 1.0)
 
         mesh.render()
 
@@ -334,6 +351,54 @@ class SceneRenderer:
             position=(x, 0.5, mid_z),
             scale=(0.15, FENCE_BAR_THICK, span),
             color=FENCE_COLOR,
+        )
+
+    def _render_wall_along_x(self, z, x_start, x_end):
+        """Renderiza um trecho contínuo de muro paralelo ao eixo X usando textura."""
+        # Garante que o comprimento seja sempre positivo para não quebrar a escala nem o UV
+        span = abs(x_end - x_start)
+        mid_x = (x_start + x_end) / 2
+        
+        wall_height = FENCE_POST_SCALE[1]
+        wall_thickness = 0.18
+        
+        # O cálculo do tiling (repetição) também precisa ser estritamente positivo
+        tex_u = max(1.0, span)
+        tex_v = max(1.0, wall_height)
+        
+        self.render_object(
+            self.cube_mesh,
+            position=(mid_x, 1.0, z),
+            scale=(span, wall_height, wall_thickness), # Agora garante valor positivo
+            color=(255, 255, 255),                     # <--- Mudei para 255 para tirar o tom cinza e clarear o tijolo!
+            texture=self.wall_texture,
+            use_texture=True,
+            texture_scale=(tex_u, tex_v),
+        )
+
+    def _render_wall_along_z(self, x, z_start, z_end):
+        """Renderiza o muro do eixo Z rotacionando um muro do eixo X em 90 graus."""
+        span = abs(z_end - z_start)
+        mid_z = (z_start + z_end) / 2
+        
+        wall_height = FENCE_POST_SCALE[1]
+        wall_thickness = 0.18
+        
+        # Usamos os mesmos cálculos de repetição do eixo X
+        tex_u = max(1.0, span)
+        tex_v = max(1.0, wall_height)
+        
+        self.render_object(
+            self.cube_mesh,
+            position=(x, 1.0, mid_z),
+            # Invertemos os parâmetros de escala: passamos o 'span' no X do cubo,
+            # porque a rotação vai se encargar de girar esse X para a direção Z!
+            scale=(span, wall_height, wall_thickness), 
+            color=(255, 255, 255),
+            texture=self.wall_texture,
+            use_texture=True,
+            texture_scale=(tex_u, tex_v),
+            rotation=(0, 90, 0) # <--- GIRA 90 GRAUS NO EIXO Y
         )
 
     def _render_fence_along_x(self, z, x_start, x_end, step=FENCE_POST_STEP):
@@ -386,14 +451,11 @@ class SceneRenderer:
 
     def render_fence(self):
         """Cerca em torno do quintal expandido e contorno parcial da casa."""
-        self._render_fence_along_x(YARD_Z_MIN, YARD_X_MIN, YARD_X_MAX)
-        self._render_fence_along_x(YARD_Z_MAX, YARD_X_MIN, YARD_X_MAX)
-        self._render_fence_along_z(YARD_X_MIN, YARD_Z_MIN, YARD_Z_MAX)
-        self._render_fence_along_z(YARD_X_MAX, YARD_Z_MIN, YARD_Z_MAX)
-
-        # Cerca ao redor da casa (aberta para o quintal ao sul)
-        self._render_fence_along_x(-14.2, -9.5, -2.8)
-        self._render_fence_along_z(-9.5, -14.2, -8.5)
+        # Substitui a cerca por muros texturizados usando a imagem parede.png
+        self._render_wall_along_x(YARD_Z_MIN, YARD_X_MIN, YARD_X_MAX)
+        self._render_wall_along_x(YARD_Z_MAX, YARD_X_MIN, YARD_X_MAX)
+        self._render_wall_along_z(YARD_X_MIN, YARD_Z_MIN, YARD_Z_MAX)
+        self._render_wall_along_z(YARD_X_MAX, YARD_Z_MIN, YARD_Z_MAX)
 
     def render_house(self):
         """Casa azul com porta na fachada (+Z) e janela na parede lateral (+X)."""

@@ -12,6 +12,7 @@ layout (location = 2) in vec2 texCoord;
 uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
+uniform vec2 texScale;
 
 out vec3 FragPos;
 out vec3 Normal;
@@ -21,7 +22,8 @@ void main()
 {
     FragPos = vec3(model * vec4(position, 1.0));
     Normal = mat3(transpose(inverse(model))) * normal;
-    TexCoord = texCoord;
+    // Allow scaling/repeating the texture via a uniform (set from Python)
+    TexCoord = texCoord * texScale;
     
     gl_Position = projection * view * vec4(FragPos, 1.0);
 }
