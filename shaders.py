@@ -64,14 +64,19 @@ void main()
     
     // Combinar iluminação
     vec3 result;
+    float alpha = 1.0;
     if (useTexture) {
-        vec3 texColor = texture(texture1, TexCoord).rgb;
-        result = (ambient + diffuse + specular) * texColor;
+        vec4 texColor = texture(texture1, TexCoord);
+        result = (ambient + diffuse + specular) * texColor.rgb;
+        alpha = texColor.a;
     } else {
         result = (ambient + diffuse + specular) * objectColor;
     }
-    
-    FragColor = vec4(result, 1.0);
+
+    if (alpha < 0.05)
+        discard;
+
+    FragColor = vec4(result, alpha);
 }
 """
 

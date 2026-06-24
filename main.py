@@ -44,6 +44,12 @@ for i in range(22):
     FOOTPRINTS.append((offset, 0.04, z))
     FOOTPRINTS.append((-offset, 0.04, z + 0.35))
 
+# Cerca de madeira (postes + barras)
+FENCE_COLOR = (160, 100, 50)
+FENCE_POST_SCALE = (0.15, 1.5, 0.15)
+FENCE_BAR_THICK = 0.1
+FENCE_POST_STEP = 2.0
+
 
 def rotation_y(degrees):
     """Matriz 4x4 de rotação em torno do eixo Y."""
@@ -105,6 +111,8 @@ class SceneRenderer:
         glEnable(GL_DEPTH_TEST)
         glEnable(GL_CULL_FACE)
         glCullFace(GL_BACK)
+        glEnable(GL_BLEND)
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
         glClearColor(0.55, 0.75, 0.95, 1.0)
 
         self.program = shaders.create_program()
@@ -136,10 +144,15 @@ class SceneRenderer:
         self.grass_texture = Texture(image_path=os.path.join(images, "grama.png"))
         self.asphalt_texture = Texture(image_path=os.path.join(images, "asfalto.png"))
         self.tree_texture = Texture(image_path=os.path.join(images, "arvore.png"))
+        self.footprint_texture = Texture(
+            image_path=os.path.join(images, "pegada.png"),
+            transparent_black=True,
+        )
 
         self.cube_mesh = objects.get_cube()
         self.sphere_mesh = objects.get_sphere()
         self.plane_mesh = objects.get_plane()
+        self.footprint_mesh = objects.get_footprint_quad()
 
         self._print_intro()
 
@@ -241,6 +254,106 @@ class SceneRenderer:
 
         mesh.render()
 
+    def _render_fence_post(self, x, y, z):
+        self.render_object(
+            self.cube_mesh,
+            position=(x, y, z),
+            scale=FENCE_POST_SCALE,
+            color=FENCE_COLOR,
+        )
+
+    def _render_fence_bars_along_x(self, z, x0, x1):
+        """Barras horizontais entre dois postes alinhados em X."""
+        span = x1 - x0
+        mid_x = (x0 + x1) / 2
+        self.render_object(
+            self.cube_mesh,
+            position=(mid_x, 1.8, z),
+            scale=(span, FENCE_BAR_THICK, 0.15),
+            color=FENCE_COLOR,
+        )
+        self.render_object(
+            self.cube_mesh,
+            position=(mid_x, 0.5, z),
+            scale=(span, FENCE_BAR_THICK, 0.15),
+            color=FENCE_COLOR,
+        )
+
+    def _render_fence_bars_along_z(self, x, z0, z1):
+        """Barras horizontais entre dois postes alinhados em Z."""
+        span = z1 - z0
+        mid_z = (z0 + z1) / 2
+        self.render_object(
+            self.cube_mesh,
+            position=(x, 1.8, mid_z),
+            scale=(0.15, FENCE_BAR_THICK, span),
+            color=FENCE_COLOR,
+        )
+        self.render_object(
+            self.cube_mesh,
+            position=(x, 0.5, mid_z),
+            scale=(0.15, FENCE_BAR_THICK, span),
+            color=FENCE_COLOR,
+        )
+
+    def _render_fence_along_x(self, z, x_start, x_end, step=FENCE_POST_STEP):
+        """Trecho de cerca paralelo ao eixo X (postes + barras)."""
+        posts = list(np.arange(x_start, x_end + 0.01, step))
+        if not posts or posts[-1] < x_end - 0.25:
+            posts.append(x_end)
+
+        for fence_x in posts:
+            self._render_fence_post(fence_x, 1.0, z)
+
+        for i in range(len(posts) - 1):
+            self._render_fence_bars_along_x(z, posts[i], posts[i + 1])
+
+    def _render_fence_along_z(self, x, z_start, z_end, step=FENCE_POST_STEP):
+        """Trecho de cerca paralelo ao eixo Z (postes + barras)."""
+        posts = list(np.arange(z_start, z_end + 0.01, step))
+        if not posts or posts[-1] < z_end - 0.25:
+            posts.append(z_end)
+
+        for fence_z in posts:
+            self._render_fence_post(x, 1.0, fence_z)
+
+        for i in range(len(posts) - 1):
+            self._render_fence_bars_along_z(x, posts[i], posts[i + 1])
+
+    def render_fence(self):
+        """
+        Cerca do quintal: perímetro, divisão com a rua (portão aberto)
+        e contorno ao redor da casa.
+        """
+        # Fundo do quintal (z ≈ -15)
+        self._render_fence_along_x(-14.5, -10, 10)
+
+        # Lados do quintal
+        self._render_fence_along_z(-9.8, -14.5, 0)
+        self._render_fence_along_z(9.8, -14.5, 0)
+
+        # Divisão quintal | rua — abertura central para o caminho das pegadas
+        self._render_fence_along_x(0, -10, -2.5)
+        self._render_fence_along_x(0, 2.5, 10)
+
+        # Postes do portão
+        self._render_fence_post(-2.5, 1.0, 0)
+        self._render_fence_post(2.5, 1.0, 0)
+
+        # Portão aberto (painel lateral)
+        self.render_object(
+            self.cube_mesh,
+            position=(2.5, 1.0, 0.6),
+            scale=(0.15, 1.5, 1.2),
+            color=FENCE_COLOR,
+            rotation=(0, 30, 0),
+        )
+
+        # Cerca ao redor da casa (centro em -6, -11; aberta para o quintal ao sul)
+        self._render_fence_along_x(-14.2, -9.5, -2.8)
+        self._render_fence_along_z(-9.5, -14.2, -8.5)
+        self._render_fence_along_z(-2.8, -14.2, -9.2)
+
     def render_quintal(self):
         """Área 1 — Quintal com grama, casa, pote e pegadas iniciais."""
         # Chão de grama (textura obrigatória)
@@ -269,19 +382,8 @@ class SceneRenderer:
             color=(220, 80, 60),
         )
 
-        # Portão (marco visual de saída do quintal)
-        self.render_object(
-            self.cube_mesh,
-            position=(3.5, 1.0, -0.5),
-            scale=(0.15, 2.0, 2.0),
-            color=(120, 80, 40),
-        )
-        self.render_object(
-            self.cube_mesh,
-            position=(-3.5, 1.0, -0.5),
-            scale=(0.15, 2.0, 2.0),
-            color=(120, 80, 40),
-        )
+        # Cerca: perímetro do quintal, portão para a rua e contorno da casa
+        self.render_fence()
 
     def render_rua(self):
         """Área 2 — Rua reta com asfalto, calçadas, postes e árvores."""
@@ -336,28 +438,38 @@ class SceneRenderer:
                 color=(34, 120, 45),
             )
 
+    def _draw_footprint(self, fp_x, fp_y, fp_z, flip_x=False):
+        """Pegada no chão: quad horizontal com textura transparente."""
+        scale_x = -1.0 if flip_x else 1.0
+        glDisable(GL_CULL_FACE)
+        glEnable(GL_POLYGON_OFFSET_FILL)
+        glPolygonOffset(-2.0, -2.0)
+
+        self.render_object(
+            self.footprint_mesh,
+            position=(fp_x, fp_y, fp_z),
+            scale=(scale_x, 1.0, 1.0),
+            color=(255, 255, 255),
+            texture=self.footprint_texture,
+            use_texture=True,
+        )
+
+        glDisable(GL_POLYGON_OFFSET_FILL)
+        glEnable(GL_CULL_FACE)
+
     def render_footprints(self):
-        """Pegadas como quadrados achatados no chão."""
-        for fp_x, fp_y, fp_z in FOOTPRINTS:
+        """Pegadas na rua."""
+        for i, (fp_x, fp_y, fp_z) in enumerate(FOOTPRINTS):
             if fp_z < 0:
-                continue  # quintal já tem pegadas próximas
-            self.render_object(
-                self.cube_mesh,
-                position=(fp_x, fp_y, fp_z),
-                scale=(0.18, 0.02, 0.22),
-                color=(50, 45, 40),
-            )
+                continue
+            self._draw_footprint(fp_x, fp_y, fp_z, flip_x=(i % 2 == 1))
 
     def render_quintal_footprints(self):
-        for fp_x, fp_y, fp_z in FOOTPRINTS:
+        """Pegadas no quintal."""
+        for i, (fp_x, fp_y, fp_z) in enumerate(FOOTPRINTS):
             if fp_z >= 0:
                 continue
-            self.render_object(
-                self.cube_mesh,
-                position=(fp_x, fp_y, fp_z),
-                scale=(0.18, 0.02, 0.22),
-                color=(50, 45, 40),
-            )
+            self._draw_footprint(fp_x, fp_y, fp_z, flip_x=(i % 2 == 1))
 
     def render_scene(self):
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)

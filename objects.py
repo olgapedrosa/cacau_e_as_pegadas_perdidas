@@ -266,6 +266,32 @@ def create_plane(width=10, height=10, subdivisions=10):
                 np.array(texcoords, dtype=np.float32))
 
 
+def create_footprint_quad(width=0.36, depth=0.42):
+    """Quad horizontal no chão (plano XZ) para textura de pegada."""
+    hw = width / 2
+    hd = depth / 2
+
+    vertices = np.array([
+        [-hw, 0.0, -hd],
+        [ hw, 0.0, -hd],
+        [ hw, 0.0,  hd],
+        [-hw, 0.0,  hd],
+    ], dtype=np.float32)
+
+    normals = np.array([
+        [0, 1, 0], [0, 1, 0], [0, 1, 0], [0, 1, 0],
+    ], dtype=np.float32)
+
+    # Dedos da textura (topo da imagem) apontam para +Z (direção da rua)
+    texcoords = np.array([
+        [0, 1], [1, 1], [1, 0], [0, 0],
+    ], dtype=np.float32)
+
+    indices = np.array([0, 1, 2, 0, 2, 3], dtype=np.uint32)
+
+    return Mesh(vertices, normals, indices, texcoords)
+
+
 import ctypes
 
 # Exportar meshes pré-criadas para reutilização
@@ -273,6 +299,7 @@ _cube = None
 _sphere = None
 _cylinder = None
 _plane = None
+_footprint_quad = None
 
 def get_cube():
     global _cube
@@ -297,3 +324,9 @@ def get_plane():
     if _plane is None:
         _plane = create_plane(50, 50, 20)
     return _plane
+
+def get_footprint_quad():
+    global _footprint_quad
+    if _footprint_quad is None:
+        _footprint_quad = create_footprint_quad()
+    return _footprint_quad
