@@ -94,8 +94,8 @@ def create_cube():
         4, 6, 5, 4, 7, 6,      # Traseira
         8, 9, 10, 8, 10, 11,   # Superior
         12, 14, 13, 12, 15, 14, # Inferior
-        16, 18, 17, 16, 19, 18, # Direita
-        20, 21, 22, 20, 22, 23, # Esquerda
+        16, 17, 18, 16, 18, 19, # Direita (+X)
+        20, 22, 21, 20, 23, 22, # Esquerda (-X)
     ], dtype=np.uint32)
     
     # Coordenadas de textura

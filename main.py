@@ -352,7 +352,57 @@ class SceneRenderer:
         # Cerca ao redor da casa (centro em -6, -11; aberta para o quintal ao sul)
         self._render_fence_along_x(-14.2, -9.5, -2.8)
         self._render_fence_along_z(-9.5, -14.2, -8.5)
-        self._render_fence_along_z(-2.8, -14.2, -9.2)
+
+    def render_house(self):
+        """Casa azul com porta na fachada (+Z) e janela na parede lateral (+X)."""
+        house_pos = (-6, 1.5, -11)
+        house_scale = (3, 3, 3)
+        # Cubo unitário vai de -1 a 1: face +Z fica em center + scale (não scale/2)
+        facade_z = house_pos[2] + house_scale[2]
+        detail_z = facade_z + 0.1
+        side_x = house_pos[0] + house_scale[0] + 0.1
+
+        self.render_object(
+            self.cube_mesh,
+            position=house_pos,
+            scale=house_scale,
+            color=(70, 130, 210),
+        )
+
+        glEnable(GL_POLYGON_OFFSET_FILL)
+        glPolygonOffset(-1.0, -1.0)
+
+        # Porta (marrom, centrada na fachada)
+        self.render_object(
+            self.cube_mesh,
+            position=(house_pos[0], 0.75, detail_z),
+            scale=(0.85, 1.5, 0.08),
+            color=(95, 55, 25),
+        )
+        # Maçaneta
+        self.render_object(
+            self.cube_mesh,
+            position=(house_pos[0] + 0.28, 0.75, detail_z + 0.06),
+            scale=(0.08, 0.08, 0.06),
+            color=(200, 180, 60),
+        )
+
+        # Janela na parede lateral direita (+X), centrada ao longo do eixo Z
+        window_z = house_pos[2] + 0.8
+        self.render_object(
+            self.cube_mesh,
+            position=(side_x, 2.1, window_z),
+            scale=(0.08, 1.0, 1.0),
+            color=(45, 45, 50),
+        )
+        self.render_object(
+            self.cube_mesh,
+            position=(side_x + 0.05, 2.1, window_z),
+            scale=(0.04, 0.82, 0.82),
+            color=(160, 210, 240),
+        )
+
+        glDisable(GL_POLYGON_OFFSET_FILL)
 
     def render_quintal(self):
         """Área 1 — Quintal com grama, casa, pote e pegadas iniciais."""
@@ -366,18 +416,12 @@ class SceneRenderer:
             use_texture=True,
         )
 
-        # Casa — cubo grande azul (cor sólida)
-        self.render_object(
-            self.cube_mesh,
-            position=(-6, 1.5, -11),
-            scale=(3, 3, 3),
-            color=(70, 130, 210),
-        )
+        self.render_house()
 
-        # Pote de ração — cubo colorido pequeno
+        # Pote de ração — mais afastado da casa, no centro do quintal
         self.render_object(
             self.cube_mesh,
-            position=(-4, 0.15, -8),
+            position=(2.5, 0.15, -5.5),
             scale=(0.35, 0.3, 0.35),
             color=(220, 80, 60),
         )
