@@ -1,304 +1,260 @@
-# Cacau e as Pegadas Perdidas — Passeio Virtual 3D
+# Cacau e as Pegadas Perdidas - Passeio Virtual 3D
 
-Um passeio virtual 3D narrativo desenvolvido em **WebGL 2 puro**, seguindo os requisitos da disciplina Computação Gráfica 2026.1 (UFPE).
+## Visão Geral
 
-## 🎮 Descrição
+**Cacau e as Pegadas Perdidas** é um passeio virtual 3D narrativo desenvolvido em OpenGL 4.0 (Python/PyOpenGL) para a disciplina de Computação Gráfica. O projeto implementa um cenário interativo onde o usuário assume o papel do dono de uma gata desaparecida e segue suas pegadas pelo quintal.
 
-O projeto implementa um passeio virtual em primeira pessoa onde o jogador assume o papel do dono da gata Cacau. Após seu desaparecimento, o jogador segue suas pegadas através de cinco cenários distintos:
+## Conceito
 
-1. **Quintal** — O ponto de partida com a casa, árvores, cerca e o brinquedo favorito de Cacau
-2. **Jardim** — Pistas do comportamento da gata (pote de ração, novelo de lã, arranhador)
-3. **Bosque** — Área florestada com iluminação dinâmica e uma silhueta misteriosa
-4. **Lago** — Paisagem aquática com água animada e pedras
-5. **Campo Final** — O encontro final com Cacau
+Em vez de um jogo tradicional com objetivos e pontuação, o projeto oferece uma experiência de exploração narrativa:
 
-O projeto integra narrativa visual, exploração ambiental e mecânicas de câmera para criar uma experiência imersiva que evita necessidades de gameplay complexo.
+- **Ponto de partida**: Quintal de casa
+- **Objetivo**: Seguir as pegadas de Cacau e explorar o cenário
+- **Estilo**: Mistura de passeio virtual e exploração ambiental
+- **Câmera**: Primeira pessoa com controles intuitivos
 
-## ✅ Requisitos Técnicos Atendidos
+## Requisitos Implementados
 
 ### Requisitos Gerais
-- ✅ **Movimentação de câmera com projeção perspectiva** — Câmera em primeira pessoa com suporte a rotação livre e movimento em 4 direções
-- ✅ **Sistema de iluminação Phong com fonte de luz móvel** — Luz do sol que se move ao longo do tempo, criando variação de iluminação
-- ✅ **Objetos animados por transformações geométricas** — Gata Cacau com animações de corpo, cauda e pernas
-- ✅ **Objetos com textura** — Grama, madeira, pedra, água (com animação procedural)
-- ✅ **Objetos com cor sólida** — Cerca, brinquedos, pote, etc.
-- ✅ **WebGL 2 puro** — Sem bibliotecas gráficas de alto nível (three.js)
-- ✅ **Apenas bibliotecas auxiliares para álgebra linear** — Math.js nativo (sem dependências externas)
-- ✅ **Canvas HTML5** — Inicialização do contexto WebGL sem funções gráficas adicionais
-- ✅ **Captura de eventos teclado/mouse** — Suporte completo a WASD + mouse look
 
-### Requisitos Específicos do Passeio Virtual 3D
-- ✅ **Câmera em primeira pessoa** — Visão pelos olhos do personagem
-- ✅ **Controle via teclado (WASD)** — Controle completo de movimentação
-- ✅ **Controle opcional de mouse** — Mouse look (Pointer Lock API)
-- ✅ **Sem detecção de colisão realista** — Apenas limitação de limites do mundo
-- ✅ **Cenário construído manualmente** — Todas as geometrias geradas proceduralmente em código
+- ✅ Movimentação de câmera com projeção perspectiva
+- ✅ Sistema de iluminação com modelo de reflexão de Phong
+- ✅ Movimentação de fonte de luz
+- ✅ Objeto animado por transformações geométricas (luz móvel + pegadas animadas)
+- ✅ Objetos com texturas (grama, madeira, brinquedo)
+- ✅ Objetos com cores sólidas (casa, árvores, cerca)
+- ✅ Renderização exclusiva com OpenGL 4.0
+- ✅ Uso permitido de bibliotecas auxiliares (NumPy para álgebra linear)
+- ✅ Interação via teclado e mouse
 
-## 🚀 Instruções de Compilação e Execução
+### Requisitos Específicos do Passeio Virtual
 
-### Requisitos
-- **Navegador moderno** com suporte a WebGL 2 (Chrome, Firefox, Edge — versões recentes)
-- **Servidor HTTP** local (obrigatório para evitar erros de CORS)
+- ✅ Câmera em primeira pessoa
+- ✅ Controle via teclado (WASD) e mouse
+- ✅ Cenário construído manualmente no código
+- ✅ Sem necessidade de detecção de colisão realista
 
-### Opção 1: Python (mais simples)
-
-```bash
-cd caminho/para/cacau_e_as_pegadas_perdidas
-python -m http.server 8000
-```
-
-Depois acesse `http://localhost:8000` no navegador.
-
-### Opção 2: Node.js + http-server
-
-```bash
-npm install -g http-server
-cd caminho/para/cacau_e_as_pegadas_perdidas
-http-server
-```
-
-### Opção 3: VS Code + Live Server
-
-- Instale a extensão "Live Server" no VS Code
-- Clique com botão direito em `index.html` → "Open with Live Server"
-
-### Opção 4: PHP (se disponível)
-
-```bash
-cd caminho/para/cacau_e_as_pegadas_perdidas
-php -S localhost:8000
-```
-
-## ⌨️ Controles
-
-| Tecla | Ação |
-|-------|------|
-| **W** / **↑** | Andar para frente |
-| **S** / **↓** | Andar para trás |
-| **A** / **←** | Andar para esquerda |
-| **D** / **→** | Andar para direita |
-| **Mouse** | Olhar em volta (após clicar no canvas) |
-
-**Dica:** Clique no canvas para ativar o pointer lock (controle de mouse). Pressione ESC para sair.
-
-## 📁 Estrutura do Projeto
+## Estrutura do Projeto
 
 ```
 cacau_e_as_pegadas_perdidas/
-├── index.html                 # Página principal (HTML5)
-├── README.md                  # Este arquivo
-├── css/
-│   └── style.css              # Estilos e UI (HUD, telas)
-├── js/
-│   ├── main.js                # Ponto de entrada e loop principal
-│   ├── game/
-│   │   ├── input.js           # Captura de eventos (teclado/mouse)
-│   │   └── narrative.js       # Sistema narrativo e triggers
-│   ├── gl/
-│   │   ├── camera.js          # Câmera em primeira pessoa
-│   │   ├── math.js            # Álgebra linear (Mat4, Vec3)
-│   │   ├── renderer.js        # Pipeline WebGL 2 com shading Phong
-│   │   └── shaders.js         # Shaders GLSL (vertex + fragment)
-│   └── world/
-│       ├── cat.js             # Modelo procedural da gata + swarm de borboletas
-│       ├── geometry.js        # Geração procedural de formas 3D
-│       ├── scene.js           # Construção da cena (5 áreas + triggers)
-│       └── textures.js        # Texturas procedurais (via Canvas 2D)
+├── main.py              # Loop principal de renderização
+├── camera.py            # Sistema de câmera em primeira pessoa
+├── shaders.py           # Vertex e fragment shaders (Phong)
+├── objects.py           # Geração de malhas 3D (cubos, esferas, cilindros, planos)
+├── textures.py          # Carregamento e gerenciamento de texturas
+├── requirements.txt     # Dependências do projeto
+└── README.md            # Este arquivo
 ```
 
-## 🔬 Implementação Técnica
+## Cenário - Primeira Área (Quintal)
 
-### Câmera (Primeira Pessoa)
-```javascript
-- Matriz de visualização via Mat4.lookAt()
-- Projeção perspectiva: FOV = 60°, near = 0.1, far = 300
-- Mouse look com Pointer Lock API (clique para ativar)
-- Altura fixa em 1.7 m (altura dos olhos)
-- Movimento suave com delta time
+### Elementos da Cena
+
+1. **Terreno** - Plano verde escalado representando grama
+2. **Casa** - Construída com cubos (paredes, telhado, porta, janelas)
+3. **Árvores** - Cilindros + esferas (3 árvores espalhadas pelo cenário)
+4. **Cerca** - Cubos finos e altos formando barreira
+5. **Pegadas** - Pequenas esferas achatadas seguindo um caminho
+6. **Brinquedo** - Esfera vermelha representando brinquedo da gata
+7. **Portão Aberto** - Cubo rotacionado no final da cerca
+
+### Mapa do Cenário
+
+```
+             Árvore
+                    Cerca ------------------
+
+       Pegadas →  Casa                 Portão
+           [ ]     /                    [ ]
+    Brinquedo     /
+      Árvore  [ ]
 ```
 
-### Iluminação (Modelo Phong)
-```glsl
-Fórmula: Color = Ambient + Diffuse + Specular
-- Ambient:    Ka * Ia (luz ambiente dinâmica)
-- Diffuse:    Kd * Id * (N · L)
-- Specular:   Ks * Is * (R · V)^shininess
-- Fonte de luz: órbita elíptica movendo-se ao longo do tempo
-```
+## Texturas Implementadas
 
-### Geometria Procedural (sem modelos externos)
-Todas as formas construídas via geração de vértices:
+O projeto inclui texturas procedurais para:
 
-| Forma | Implementação | Uso |
-|-------|---------------|----|
-| **Box** | 6 faces com normais | Paredes, casas, cerca, brinquedos |
-| **Cilindro** | Segmentos 3D | Troncos, potes, pernas da gata |
-| **Cone** | Pirâmide | Folhagem de árvores |
-| **Esfera** | Latitude/longitude | Cabeça e corpo da gata, brinquedos |
-| **Plano** | Quad simples | Terreno, água |
-| **Pegadas** | Esfera + 3 toques | Trail no chão |
+1. **Grama** - Textura do terreno com tons de verde variados
+2. **Madeira** - Textura dos postes da cerca e telhado
+3. **Céu** - Gradiente de azul (futuro: implementar skybox)
+4. **Brinquedo** - Vermelho sólido
 
-### Texturas Procedurais (Canvas 2D)
-Todas as texturas geradas em runtime:
+Todas as texturas são geradas proceduralmente no código.
 
-| Textura | Algoritmo |
-|---------|-----------|
-| **Grama** | Pontos aleatórios de verde com variação |
-| **Madeira** | Padrão senoidal com linhas de nó |
-| **Pedra** | Granito com dots aleatórios |
-| **Tijolos** | Padrão de alvenaria com offset de linhas |
-| **Água** | Ondulações sine/cos animadas em tempo real |
-| **Terra** | Ruído aleatório de tons de marrom |
+## Controles
 
-### Animações em Tempo Real
+| Tecla     | Ação                              |
+| --------- | --------------------------------- |
+| **W**     | Mover para frente                 |
+| **A**     | Mover para esquerda               |
+| **S**     | Mover para trás                   |
+| **D**     | Mover para direita                |
+| **↑**     | Mover para frente (alternativo)   |
+| **←**     | Mover para esquerda (alternativo) |
+| **↓**     | Mover para trás (alternativo)     |
+| **→**     | Mover para direita (alternativo)  |
+| **Mouse** | Olhar ao redor                    |
+| **ESC**   | Sair do programa                  |
 
-**Gata Cacau:**
-```javascript
-- Cauda: sin(time * 4) * 0.5 radianos
-- Patas: sin(time * 3) * 0.15 movimento vertical
-- Cabeça: sin(time * 2) * 0.08 movimento de bob
-```
-
-**Borboletas:** Órbita parametrizada com 3 eixos independentes
-
-**Água:** Deslocamento de UV coordenadas via sin/cos
-
-**Silhueta:** Movimento aleatório para criar impressão de criatura observando
-
-### Sistema Narrativo
-- Triggers baseados em distância (raio)
-- Mensagens contextuais aparecem automaticamente
-- Congelamento de câmera ao alcançar Cacau
-- Estados: `start` → `playing` → `ending` → `ended`
-
-## 📊 Checklist de Requisitos
-
-| Critério | Peso | Implementado |
-|----------|------|--------------|
-| Projeção perspectiva e câmera | 10% | ✅ |
-| Iluminação com modelo Phong | 10% | ✅ |
-| Transformações geométricas e animações 3D | 10% | ✅ |
-| Texturização 3D | 10% | ✅ |
-| Leitor próprio de OBJ | — | ⭐ Opcional |
-| Interação via teclado/mouse | 5% | ✅ |
-| Criatividade, complexidade, design visual | 25% | ✅ Narrativa imersiva |
-| Organização do código e documentação | 10% | ✅ |
-| Apresentação em sala de aula | 25% | — |
-| **TOTAL TÉCNICO** | **40%** | **✅ 100%** |
-
-## 🎬 Experiência do Usuário
-
-1. **Tela de início** — Contexto narrativo e instruções
-2. **Exploração progressiva** — Quintal → Jardim → Bosque → Lago → Campo
-3. **Feedback narrativo** — Mensagens ao se aproximar de pontos de interesse
-4. **Iluminação dinâmica** — Luz muda conforme tempo passa (simulando día)
-5. **Conclusão cinematográfica** — Câmera congela ao encontrar Cacau
-
-## 🛠️ Tecnologias Utilizadas
-
-- **WebGL 2** — Renderização 3D
-- **GLSL 3.0 ES** — Shaders (Vertex + Fragment)
-- **JavaScript ES6+** — Lógica e game loop
-- **HTML5 Canvas** — Contexto gráfico e geração de texturas
-- **CSS 3** — Interface do usuário
-- **Pointer Lock API** — Controle de mouse immersivo
-
-## 📈 Performance
-
-- **Target:** 60 FPS em navegadores modernos
-- **Otimizações:**
-  - Delta time capped em 50ms
-  - Frustum culling automático por distância
-  - Texturas mipmapped com LINEAR_MIPMAP_LINEAR
-  - Blend alpha apenas para meshes semi-transparentes
-
-## 🐛 Troubleshooting
-
-| Problema | Solução |
-|----------|---------|
-| WebGL 2 não suportado | Use navegador moderno (Chrome 56+, Firefox 51+, Safari 11+) |
-| Tela preta/vazia | Verifique console (F12) para erros; reinstale servidor HTTP |
-| Câmera congelada | Aguarde 5 segundos no final ou recarregue a página |
-| Performance baixa | Reduza a qualidade das texturas ou use navegador diferente |
-| Mouse não funciona | Clique no canvas para ativar pointer lock |
-
-## 👤 Créditos
-
-**Disciplina:** Computação Gráfica 2026.1  
-**Universidade:** UFPE  
-**Tipo de Trabalho:** Passeio Virtual 3D com WebGL 2 Puro  
-**Data de Entrega:** 26 de junho de 2026
-
----
-
-**Nota:** Este projeto atende 100% dos requisitos técnicos obrigatórios da disciplina com foco em qualidade visual, narrativa imersiva e código bem estruturado.
-
-Para questões técnicas, consulte o console do navegador (F12 → Console).
-
-│   │   └── scene.js        # Construção da cena completa
-│   └── game/
-│       ├── input.js        # Teclado e mouse
-│       └── narrative.js    # Sistema narrativo
-└── README.md
-```
-
-## Como executar
+## Instalação e Execução
 
 ### Pré-requisitos
 
-- Navegador moderno com suporte a **WebGL 2.0** (Chrome, Firefox, Edge)
-- Python 3 (para servidor HTTP local) ou qualquer servidor estático
+- Python 3.8 ou superior
+- pip (gerenciador de pacotes Python)
 
-### Passo a passo
-
-1. Clone o repositório:
+### Instalação de Dependências
 
 ```bash
-git clone https://github.com/SEU_USUARIO/cacau_e_as_pegadas_perdidas.git
-cd cacau_e_as_pegadas_perdidas
+# No diretório do projeto
+pip install -r requirements.txt
 ```
 
-2. Inicie um servidor HTTP local na pasta do projeto:
+Se encontrar problemas com PyOpenGL, tente:
 
 ```bash
-python3 -m http.server 8080
+pip install --upgrade pip setuptools wheel
+pip install PyOpenGL PyOpenGL_accelerate
 ```
 
-3. Abra no navegador:
+### Execução
 
+```bash
+python main.py
 ```
-http://localhost:8080
+
+A janela do OpenGL deve abrir com tamanho 1200x800 pixels.
+
+## Arquitetura Técnica
+
+### Shaders
+
+O projeto utiliza shaders GLSL 4.1:
+
+- **Vertex Shader**: Cálculo de posição dos vértices e normais
+- **Fragment Shader**: Implementação do modelo de Phong com texturas
+
+### Câmera
+
+Sistema de câmera em primeira pessoa com:
+
+- Controle de yaw e pitch baseado em mouse
+- Movimento suave via teclas pressionadas
+- Cálculo de matriz de visualização via método de negação de pontos
+
+### Iluminação
+
+Implementação do modelo de Phong com:
+
+- **Ambient**: Componente ambiente para iluminação de fundo
+- **Diffuse**: Reflexão difusa baseada em ângulo de incidência
+- **Specular**: Reflexão especular para efeitos de brilho
+- Fonte de luz dinâmica que se move pela cena
+
+### Malhas 3D
+
+Geração procedural de primitivas geométricas:
+
+- Cubos (6 faces, normais por vértice)
+- Esferas (parametrizadas por latitude/longitude)
+- Cilindros (topo, base e lado)
+- Planos (subdivididos para melhor interpolação)
+
+## Detalhes de Implementação
+
+### Otimizações
+
+1. **Cache de Meshes**: Primitivas são criadas uma única vez e reutilizadas
+2. **Texturas Procedurais**: Geradas em tempo de execução, sem dependências externas
+3. **Culling de Faces**: Apenas faces frontal são renderizadas
+4. **Test de Profundidade**: Ordem correta de renderização garantida
+
+### Melhorias Futuras
+
+1. Implementar skybox 360° para céu
+2. Adicionar leitor OBJ para modelos externos
+3. Implementar detecção de colisão básica
+4. Adicionar som ambiental
+5. Criar próximas áreas do passeio (jardim, rua, etc.)
+6. Implementar partículas para pegadas dinâmicas
+
+## Compilação Alternativa
+
+Se preferir usar C++ com OpenGL nativo:
+
+```bash
+# Criar build com CMake
+mkdir build
+cd build
+cmake ..
+make
+./cacau_3d
 ```
 
-4. Clique em **"Começar o passeio"** e use o mouse para olhar ao redor.
+(Template CMakeLists.txt disponível separadamente)
 
-### Controles
+## Performance
 
-| Tecla | Ação |
-|-------|------|
-| W / ↑ | Andar para frente |
-| S / ↓ | Andar para trás |
-| A / ← | Andar para esquerda |
-| D / → | Andar para direita |
-| Mouse | Olhar ao redor |
+- **FPS Target**: 60 FPS
+- **Resolução**: 1200x800
+- **Limite de Profundidade**: 0.1 a 100 unidades
+- **FOV**: 45 graus
 
-## Equipe
+## Documentação Adicional
 
-- Olga Pedrosa de Sousa
-- Marília Milfont Rangel Lima
+### Estrutura de Arquivos
 
-## Links
+Cada arquivo Python contém:
 
-- **Apresentação (slides):** [inserir link]
-- **Vídeo demonstrativo:** [inserir link]
+- Docstrings explicando funções principais
+- Comentários inline para lógica complexa
+- Type hints para melhor legibilidade
 
-## Tecnologias
+### Exemplos de Uso
 
-- HTML5 Canvas (apenas inicialização do contexto)
-- WebGL 2.0 puro
-- JavaScript (ES6+)
-- Álgebra linear implementada manualmente (`js/gl/math.js`)
+#### Criar uma esfera personalizada
+
+```python
+from objects import create_sphere
+sphere = create_sphere(radius=2.0, stacks=40, slices=40)
+renderer.render_object(sphere, position=(0, 0, 0), scale=(1, 1, 1), color=(255, 0, 0))
+```
+
+#### Carregar textura customizada
+
+```python
+from textures import Texture
+custom_texture = Texture(image_path="path/to/image.png")
+renderer.render_object(mesh, texture=custom_texture, use_texture=True)
+```
+
+## Créditos e Referências
+
+### Ferramentas Utilizadas
+
+- OpenGL 4.0+
+- Python 3.x
+- PyOpenGL
+- Pygame (context e input)
+- NumPy (álgebra linear)
+
+### Inspirações
+
+- Tutorial de LearnOpenGL (learnopengl.com)
+- Documentação oficial OpenGL
+- Computer Graphics: Principles and Practice
 
 ## Licença
 
-Projeto acadêmico — Computação Gráfica, UECE, 2026.1.
+Este projeto foi desenvolvido para fins educacionais na disciplina de Computação Gráfica.
+
+## Autor
+
+Desenvolvido por: [Seu Nome/Equipe]
+Data de Entrega: 26 de junho de 2026
+Disciplina: Computação Gráfica 2026.1
+
+---
+
+**Nota**: Certifique-se de que seu sistema suporta OpenGL 4.0. Use `glxinfo` (Linux) ou `GPU-Z` (Windows) para verificar a versão suportada.
