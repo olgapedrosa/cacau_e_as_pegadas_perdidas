@@ -9,6 +9,7 @@ Controles: WASD/Setas + Mouse | ESC para sair
 import os
 import math
 import sys
+import ctypes
 
 import numpy as np
 import pygame
@@ -20,6 +21,36 @@ import camera
 import objects
 from textures import Texture
 import cat
+
+UI_VERTEX_SHADER = """
+#version 410
+
+layout (location = 0) in vec2 position;
+layout (location = 1) in vec2 texCoord;
+
+out vec2 vTexCoord;
+
+void main()
+{
+    vTexCoord = texCoord;
+    gl_Position = vec4(position, 0.0, 1.0);
+}
+"""
+
+UI_FRAGMENT_SHADER = """
+#version 410
+
+in vec2 vTexCoord;
+
+uniform sampler2D uiTexture;
+
+out vec4 FragColor;
+
+void main()
+{
+    FragColor = texture(uiTexture, vTexCoord);
+}
+"""
 
 # Constantes da janela
 WINDOW_WIDTH = 1200
@@ -167,16 +198,20 @@ class SceneRenderer:
         self.clock = pygame.time.Clock()
         self.running = True
 
-        # Esconde o cursor e captura o mouse para olhar livremente
-        pygame.mouse.set_visible(False)
-        pygame.event.set_grab(True)
-
         self.time_sec = 0.0
         self.light_pos = np.array([20.0, 10.0, 0.0], dtype=np.float32)
 
-        self.game_state = "intro"  # intro | playing | found
+        self.game_state = "menu"  # menu | playing | found
+        self.intro_visible_until = None
+        self.intro_duration_ms = 3200
         self.font = pygame.font.SysFont("dejavusans", 28)
         self.font_large = pygame.font.SysFont("dejavusans", 34, bold=True)
+        self.font_title = pygame.font.SysFont("dejavusans", 50, bold=True)
+
+        self.start_button = pygame.Rect(0, 0, 280, 62)
+        self.exit_button = pygame.Rect(0, 0, 220, 56)
+        self.conclusion_exit_button = pygame.Rect(0, 0, 220, 56)
+        self._layout_ui()
 
         base_dir = os.path.dirname(os.path.abspath(__file__))
         images = os.path.join(base_dir, "images")
@@ -203,16 +238,134 @@ class SceneRenderer:
         self.plane_mesh = objects.get_plane()
         self.footprint_mesh = objects.get_footprint_quad()
 
+        self.ui_program = self._create_ui_program()
+        self.ui_texture = glGenTextures(1)
+        self.ui_vao = glGenVertexArrays(1)
+        self.ui_vbo = glGenBuffers(1)
+        self._setup_ui_quad()
+
+        self._sync_input_mode()
         self._print_intro()
 
     def _print_intro(self):
         print("=" * 60)
         print("CACAU E AS PEGADAS PERDIDAS")
         print("=" * 60)
-        print("\nCacau desapareceu.")
-        print("Vou seguir suas pegadas.\n")
+        print("\nMenu inicial com botão de começar e sair.")
+        print("Ao iniciar, a tela mostra a narrativa sobreposta e translúcida.")
+        print("Ao encontrar a Cacau, aparece a tela de conclusão com botão de sair.\n")
         print("Controles: WASD/Setas — mover | Mouse — olhar | ESC — sair")
         print("=" * 60)
+
+    def _layout_ui(self):
+        self.start_button.center = (WINDOW_WIDTH // 2, 470)
+        self.exit_button.center = (WINDOW_WIDTH // 2, 550)
+        self.conclusion_exit_button.center = (WINDOW_WIDTH // 2, 560)
+
+    def _sync_input_mode(self):
+        interactive = self.game_state == "playing"
+        pygame.mouse.set_visible(not interactive)
+        pygame.event.set_grab(interactive)
+
+    def _set_state(self, state):
+        self.game_state = state
+        self._sync_input_mode()
+
+    def _start_game(self):
+        self.intro_visible_until = pygame.time.get_ticks() + self.intro_duration_ms
+        self._set_state("playing")
+
+    def _draw_text_center(self, surface, text, center_x, center_y, font, color):
+        rendered = font.render(text, True, color)
+        rect = rendered.get_rect(center=(center_x, center_y))
+        surface.blit(rendered, rect)
+
+    def _draw_button(self, surface, rect, label, hovered=False, base_color=(34, 45, 62)):
+        fill_color = (58, 84, 126) if hovered else base_color
+        shadow = rect.move(0, 4)
+        pygame.draw.rect(surface, (0, 0, 0, 110), shadow, border_radius=16)
+        pygame.draw.rect(surface, fill_color, rect, border_radius=16)
+        pygame.draw.rect(surface, (162, 200, 255), rect, width=2, border_radius=16)
+        self._draw_text_center(surface, label, rect.centerx, rect.centery, self.font_large, (255, 255, 255))
+
+    def _draw_panel(self, surface, rect, fill=(18, 24, 34), alpha=220, border=(126, 182, 255)):
+        panel = pygame.Surface(rect.size, pygame.SRCALPHA)
+        panel.fill((*fill, alpha))
+        surface.blit(panel, rect.topleft)
+        pygame.draw.rect(surface, border, rect, width=2, border_radius=24)
+
+    def _create_ui_program(self):
+        vertex = glCreateShader(GL_VERTEX_SHADER)
+        glShaderSource(vertex, UI_VERTEX_SHADER)
+        glCompileShader(vertex)
+
+        fragment = glCreateShader(GL_FRAGMENT_SHADER)
+        glShaderSource(fragment, UI_FRAGMENT_SHADER)
+        glCompileShader(fragment)
+
+        program = glCreateProgram()
+        glAttachShader(program, vertex)
+        glAttachShader(program, fragment)
+        glLinkProgram(program)
+        return program
+
+    def _setup_ui_quad(self):
+        quad_vertices = np.array([
+            -1.0, -1.0, 0.0, 0.0,
+             1.0, -1.0, 1.0, 0.0,
+             1.0,  1.0, 1.0, 1.0,
+            -1.0,  1.0, 0.0, 1.0,
+        ], dtype=np.float32)
+
+        glBindVertexArray(self.ui_vao)
+        glBindBuffer(GL_ARRAY_BUFFER, self.ui_vbo)
+        glBufferData(GL_ARRAY_BUFFER, quad_vertices.nbytes, quad_vertices, GL_STATIC_DRAW)
+        glEnableVertexAttribArray(0)
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 16, ctypes.c_void_p(0))
+        glEnableVertexAttribArray(1)
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 16, ctypes.c_void_p(8))
+        glBindBuffer(GL_ARRAY_BUFFER, 0)
+        glBindVertexArray(0)
+
+        glBindTexture(GL_TEXTURE_2D, self.ui_texture)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
+        glBindTexture(GL_TEXTURE_2D, 0)
+
+    def _handle_button_click(self, pos):
+        if self.game_state == "menu":
+            if self.start_button.collidepoint(pos):
+                self._start_game()
+            elif self.exit_button.collidepoint(pos):
+                self.running = False
+        elif self.game_state == "found" and self.conclusion_exit_button.collidepoint(pos):
+            self.running = False
+
+    def _present_ui_surface(self, surface):
+        ui_pixels = pygame.image.tostring(surface, "RGBA", True)
+        glDisable(GL_DEPTH_TEST)
+        glUseProgram(self.ui_program)
+        glBindVertexArray(self.ui_vao)
+        glActiveTexture(GL_TEXTURE0)
+        glBindTexture(GL_TEXTURE_2D, self.ui_texture)
+        glTexImage2D(
+            GL_TEXTURE_2D,
+            0,
+            GL_RGBA,
+            surface.get_width(),
+            surface.get_height(),
+            0,
+            GL_RGBA,
+            GL_UNSIGNED_BYTE,
+            ui_pixels,
+        )
+        glUniform1i(glGetUniformLocation(self.ui_program, "uiTexture"), 0)
+        glDrawArrays(GL_TRIANGLE_FAN, 0, 4)
+        glBindVertexArray(0)
+        glBindTexture(GL_TEXTURE_2D, 0)
+        glEnable(GL_DEPTH_TEST)
 
     def handle_events(self):
         for event in pygame.event.get():
@@ -220,25 +373,30 @@ class SceneRenderer:
                 self.running = False
             elif event.type == KEYDOWN:
                 if event.key == K_ESCAPE:
-                    self.running = False
+                    if self.game_state == "playing":
+                        self.running = False
+                    else:
+                        self.running = False
+                elif self.game_state == "menu" and event.key in (K_RETURN, K_SPACE):
+                    self._start_game()
                 else:
-                    self.camera.add_key_pressed(event.key)
-                    if self.game_state == "intro":
-                        self.game_state = "playing"
+                    if self.game_state == "playing":
+                        self.camera.add_key_pressed(event.key)
             elif event.type == KEYUP:
-                self.camera.remove_key_pressed(event.key)
+                if self.game_state == "playing":
+                    self.camera.remove_key_pressed(event.key)
+            elif event.type == MOUSEBUTTONDOWN and event.button == 1:
+                self._handle_button_click(event.pos)
             elif event.type == MOUSEMOTION:
                 dx, dy = event.rel
-                if dx or dy:
+                if (dx or dy) and self.game_state == "playing":
                     self.camera.mouse_look(dx, dy)
-                    if self.game_state == "intro":
-                        self.game_state = "playing"
 
     def update(self):
         dt = self.clock.get_time() / 1000.0
         self.time_sec += dt
 
-        if self.game_state != "found":
+        if self.game_state == "playing":
             self.camera.update()
 
         # Luz móvel: lightX = 20*cos(t), lightZ = 20*sin(t)
@@ -249,7 +407,7 @@ class SceneRenderer:
         if self.game_state == "playing":
             dist = np.linalg.norm(self.camera.position - CACAU_POS)
             if dist < WIN_DISTANCE:
-                self.game_state = "found"
+                self._set_state("found")
                 print("\n>>> Você encontrou a Cacau! <<<\n")
 
     def _get_projection(self):
@@ -583,33 +741,98 @@ class SceneRenderer:
         )
 
     def render_hud(self):
-        """Texto narrativo sobre a cena."""
-        screen = pygame.display.get_surface()
-        messages = []
-
-        if self.game_state == "intro":
-            messages = [
-                "Cacau desapareceu.",
-                "Vou seguir suas pegadas.",
-            ]
+        """Desenha menus e textos sobre a cena 3D."""
+        screen = pygame.Surface(self.display, pygame.SRCALPHA)
+        if self.game_state == "menu":
+            self._draw_menu(screen)
         elif self.game_state == "found":
-            messages = ["Você encontrou a Cacau!"]
-        elif self.game_state == "playing":
-            dist = np.linalg.norm(self.camera.position - CACAU_POS)
-            if dist < 15:
-                messages = ["Estou chegando perto..."]
+            self._draw_conclusion(screen)
+        else:
+            self._draw_game_hud(screen)
+            if self.intro_visible_until is not None and pygame.time.get_ticks() < self.intro_visible_until:
+                self._draw_intro(screen)
+            elif self.intro_visible_until is not None and pygame.time.get_ticks() >= self.intro_visible_until:
+                self.intro_visible_until = None
 
-        y = 16
-        for i, msg in enumerate(messages):
-            font = self.font_large if (self.game_state == "found" or i == 0 and self.game_state == "intro") else self.font
-            shadow = font.render(msg, True, (0, 0, 0))
-            text = font.render(msg, True, (255, 255, 255))
-            screen.blit(shadow, (22, y + 2))
-            screen.blit(text, (20, y))
-            y += 42 if font == self.font_large else 34
+        self._present_ui_surface(screen)
+
+    def _draw_game_hud(self, screen):
+        dist = np.linalg.norm(self.camera.position - CACAU_POS)
+        if dist < 15:
+            message = self.font.render("Estou chegando perto...", True, (255, 255, 255))
+            shadow = self.font.render("Estou chegando perto...", True, (0, 0, 0))
+            screen.blit(shadow, (22, 18 + 2))
+            screen.blit(message, (20, 18))
 
         hint = self.font.render("WASD: mover | Mouse: olhar | ESC: sair", True, (230, 230, 230))
         screen.blit(hint, (20, WINDOW_HEIGHT - 36))
+
+    def _draw_menu(self, screen):
+        overlay = pygame.Surface(self.display, pygame.SRCALPHA)
+        overlay.fill((7, 12, 18, 240))
+        screen.blit(overlay, (0, 0))
+
+        panel = pygame.Rect(0, 0, 820, 520)
+        panel.center = (WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2)
+        self._draw_panel(screen, panel, fill=(15, 22, 32), alpha=230)
+
+        title = self.font_title.render("Cacau e as Pegadas Perdidas", True, (255, 243, 210))
+        title_shadow = self.font_title.render("Cacau e as Pegadas Perdidas", True, (0, 0, 0))
+        title_rect = title.get_rect(center=(WINDOW_WIDTH // 2, panel.top + 80))
+        screen.blit(title_shadow, title_rect.move(3, 3))
+        screen.blit(title, title_rect)
+
+        lines = [
+            "Passeio virtual 3D em OpenGL 4.0.",
+            "Siga as pegadas para encontrar a Cacau.",
+            "",
+            "Controles: WASD/Setas — mover | Mouse — olhar | ESC — sair",
+            "",
+            "Câmera em primeira pessoa, iluminação Phong, textura e cena manual.",
+        ]
+        y = panel.top + 150
+        for line in lines:
+            if line:
+                text = self.font.render(line, True, (235, 240, 248))
+                rect = text.get_rect(center=(WINDOW_WIDTH // 2, y))
+                screen.blit(text, rect)
+            y += 32
+
+        self._draw_text_center(screen, "Clique em Começar para jogar", WINDOW_WIDTH // 2, panel.bottom - 118, self.font_large, (225, 235, 245))
+
+        self.start_button.center = (WINDOW_WIDTH // 2, panel.bottom - 70)
+        self.exit_button.center = (WINDOW_WIDTH // 2, panel.bottom - 18)
+        self._draw_button(screen, self.start_button, "Começar", self.start_button.collidepoint(pygame.mouse.get_pos()), base_color=(42, 142, 80))
+        self._draw_button(screen, self.exit_button, "Sair", self.exit_button.collidepoint(pygame.mouse.get_pos()), base_color=(150, 60, 60))
+
+    def _draw_intro(self, screen):
+        overlay = pygame.Surface(self.display, pygame.SRCALPHA)
+        overlay.fill((8, 10, 16, 160))
+        screen.blit(overlay, (0, 0))
+
+        panel = pygame.Rect(0, 0, 820, 280)
+        panel.center = (WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2)
+        self._draw_panel(screen, panel, fill=(20, 26, 38), alpha=190)
+
+        self._draw_text_center(screen, "Cacau desapareceu.", WINDOW_WIDTH // 2, panel.top + 70, self.font_title, (255, 248, 230))
+        self._draw_text_center(screen, "Vou seguir suas pegadas.", WINDOW_WIDTH // 2, panel.top + 130, self.font_title, (255, 248, 230))
+        self._draw_text_center(screen, "Controles: WASD/Setas — mover | Mouse — olhar | ESC — sair", WINDOW_WIDTH // 2, panel.top + 198, self.font, (225, 232, 240))
+        self._draw_text_center(screen, "A tela permanece translúcida até a partida começar.", WINDOW_WIDTH // 2, panel.top + 240, self.font, (170, 184, 200))
+
+    def _draw_conclusion(self, screen):
+        overlay = pygame.Surface(self.display, pygame.SRCALPHA)
+        overlay.fill((5, 8, 12, 220))
+        screen.blit(overlay, (0, 0))
+
+        panel = pygame.Rect(0, 0, 720, 320)
+        panel.center = (WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2)
+        self._draw_panel(screen, panel, fill=(16, 22, 30), alpha=235, border=(112, 210, 160))
+
+        self._draw_text_center(screen, "Você encontrou a Cacau!", WINDOW_WIDTH // 2, panel.top + 88, self.font_title, (245, 250, 247))
+        self._draw_text_center(screen, "Fim da busca. Obrigado por jogar.", WINDOW_WIDTH // 2, panel.top + 155, self.font_large, (220, 232, 226))
+
+        self.conclusion_exit_button.center = (WINDOW_WIDTH // 2, panel.bottom - 64)
+        self._draw_button(screen, self.conclusion_exit_button, "Sair", self.conclusion_exit_button.collidepoint(pygame.mouse.get_pos()), base_color=(150, 60, 60))
 
     def run(self):
         while self.running:
