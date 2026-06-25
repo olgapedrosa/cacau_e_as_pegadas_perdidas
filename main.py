@@ -10,6 +10,7 @@ import os
 import math
 import sys
 import ctypes
+import textwrap
 
 import numpy as np
 import pygame
@@ -235,8 +236,18 @@ class SceneRenderer:
         self.running = True
 
         self.time_sec = 0.0
-        # Sol fixo no lado oposto da cena, mantendo a mesma altura e inclinação de tarde.
-        self.light_pos = np.array([-18.0, 13.5, 12.0], dtype=np.float32)
+        self.light_angle = 0.0
+        self.light_orbit_radius = 22.0
+        self.light_orbit_height = 13.5
+        self.light_pos = np.array([self.light_orbit_radius, self.light_orbit_height, 0.0], dtype=np.float32)
+
+        self.ball_base_pos = np.array([YARD_X_MAX - 12.5, 0.18, YARD_Z_MIN + 5.5], dtype=np.float32)
+        self.ball_phase = 0.0
+
+        self.story_overlay_lines = None
+        self.story_overlay_until = None
+        self.story_seen = set()
+        self.conclusion_story_lines = None
 
         self.game_state = "menu"  # menu | playing | found
         self.intro_visible_until = None
@@ -244,6 +255,12 @@ class SceneRenderer:
         self.font = pygame.font.SysFont("dejavusans", 28)
         self.font_large = pygame.font.SysFont("dejavusans", 34, bold=True)
         self.font_title = pygame.font.SysFont("dejavusans", 50, bold=True)
+        self.font_story = pygame.font.SysFont("dejavusans", 18)
+        self.font_story_title = pygame.font.SysFont("dejavusans", 20, bold=True)
+        self.font_menu_title = pygame.font.SysFont("dejavusans", 44, bold=True)
+        self.font_menu_text = pygame.font.SysFont("dejavusans", 24)
+        self.font_conclusion_title = pygame.font.SysFont("dejavusans", 42, bold=True)
+        self.font_conclusion_text = pygame.font.SysFont("dejavusans", 24)
 
         self.start_button = pygame.Rect(0, 0, 280, 62)
         self.exit_button = pygame.Rect(0, 0, 220, 56)
@@ -315,7 +332,71 @@ class SceneRenderer:
 
     def _start_game(self):
         self.intro_visible_until = pygame.time.get_ticks() + self.intro_duration_ms
+        self._show_story(
+            "Cacau desapareceu esta manhã. Ela costuma explorar o quintal, mas nunca fica longe por muito tempo. Talvez eu consiga encontrá-la seguindo seus rastros.",
+            duration_ms=6500,
+        )
         self._set_state("playing")
+
+    def _show_story(self, text, duration_ms=6000):
+        self.story_overlay_lines = textwrap.wrap(text, width=72)
+        self.story_overlay_until = pygame.time.get_ticks() + duration_ms
+
+    def _draw_story_overlay(self, screen):
+        panel = pygame.Rect(0, 0, 900, 110)
+        panel.midtop = (WINDOW_WIDTH // 2, 18)
+        self._draw_panel(screen, panel, fill=(12, 16, 24), alpha=165, border=(120, 160, 210))
+
+        y = panel.top + 22
+        for i, line in enumerate(self.story_overlay_lines or []):
+            font = self.font_story_title if i == 0 else self.font_story
+            color = (255, 248, 230) if i == 0 else (232, 238, 245)
+            rendered = font.render(line, True, color)
+            rect = rendered.get_rect(center=(WINDOW_WIDTH // 2, y))
+            screen.blit(rendered, rect)
+            y += 28 if i == 0 else 24
+
+    def _check_story_triggers(self):
+        if self.game_state != "playing":
+            return
+
+        if "tree_favorite" not in self.story_seen:
+            tree_pos = np.array([-8.0, 0.0, 8.0], dtype=np.float32)
+            if np.linalg.norm(self.camera.position - tree_pos) < 4.5:
+                self.story_seen.add("tree_favorite")
+                self._show_story(
+                    "Essa é a árvore favorita da Cacau. Ela adorava subir nos galhos e ficar observando tudo lá de cima. Talvez tenha passado por aqui.",
+                    duration_ms=6000,
+                )
+                return
+
+        if "food_bowl" not in self.story_seen:
+            bowl_pos = np.array([2.5, 0.15, -5.5], dtype=np.float32)
+            if np.linalg.norm(self.camera.position - bowl_pos) < 3.0:
+                self.story_seen.add("food_bowl")
+                self._show_story(
+                    "O pote vermelho ainda está cheio. Isso é estranho... Cacau nunca deixava a hora da comida passar sem aparecer.",
+                    duration_ms=6000,
+                )
+                return
+
+        if "ball" not in self.story_seen:
+            ball_x = self.ball_base_pos[0] + math.sin(self.ball_phase) * 0.7
+            ball_pos = np.array([ball_x, self.ball_base_pos[1], self.ball_base_pos[2]], dtype=np.float32)
+            if np.linalg.norm(self.camera.position - ball_pos) < 2.5:
+                self.story_seen.add("ball")
+                self._show_story(
+                    "A bolinha dela está aqui. Quantas vezes eu a vi correr pelo quintal atrás desse brinquedo.",
+                    duration_ms=6000,
+                )
+                return
+
+        if "cat" not in self.story_seen:
+            if np.linalg.norm(self.camera.position - CACAU_POS) < WIN_DISTANCE:
+                self.story_seen.add("cat")
+                self.conclusion_story_lines = textwrap.wrap("Cacau! Finalmente te encontrei. Vamos para casa.", width=72)
+                self._set_state("found")
+                print("\n>>> Você encontrou a Cacau! <<<\n")
 
     def _draw_text_center(self, surface, text, center_x, center_y, font, color):
         rendered = font.render(text, True, color)
@@ -453,14 +534,18 @@ class SceneRenderer:
         dt = self.clock.get_time() / 1000.0
         self.time_sec += dt
 
-        if self.game_state == "playing":
-            self.camera.update()
+        # Movimento lento do sol em órbita
+        self.light_angle += dt * 0.28
+        self.light_pos[0] = self.light_orbit_radius * math.cos(self.light_angle)
+        self.light_pos[2] = self.light_orbit_radius * math.sin(self.light_angle)
+        self.light_pos[1] = self.light_orbit_height
+
+        # Pequena oscilação lateral da bolinha no quintal
+        self.ball_phase += dt * 0.8
 
         if self.game_state == "playing":
-            dist = np.linalg.norm(self.camera.position - CACAU_POS)
-            if dist < WIN_DISTANCE:
-                self._set_state("found")
-                print("\n>>> Você encontrou a Cacau! <<<\n")
+            self.camera.update()
+            self._check_story_triggers()
 
     def _get_projection(self):
         aspect = WINDOW_WIDTH / WINDOW_HEIGHT
@@ -728,14 +813,6 @@ class SceneRenderer:
             color=(160, 210, 240),
         )
 
-        # Pequena bolinha decorativa no canto inferior direito do quintal
-        self.render_object(
-            self.sphere_mesh,
-            position=(YARD_X_MAX - 12.5, 0.18, YARD_Z_MIN + 5.5),
-            scale=(0.18, 0.18, 0.18),
-            color=(111, 80, 222),
-        )
-
         glDisable(GL_POLYGON_OFFSET_FILL)
 
     def render_quintal(self):
@@ -781,6 +858,14 @@ class SceneRenderer:
                 bx, bz = bush
                 size = 0.55
             self._render_bush(bx, bz, size=size)
+
+        ball_x = self.ball_base_pos[0] + math.sin(self.ball_phase) * 0.7
+        self.render_object(
+            self.sphere_mesh,
+            position=(ball_x, self.ball_base_pos[1], self.ball_base_pos[2]),
+            scale=(0.18, 0.18, 0.18),
+            color=(111, 80, 222),
+        )
 
         self.render_fence()
 
@@ -852,21 +937,24 @@ class SceneRenderer:
             self._draw_conclusion(screen)
         else:
             self._draw_game_hud(screen)
-            if self.intro_visible_until is not None and pygame.time.get_ticks() < self.intro_visible_until:
+            now = pygame.time.get_ticks()
+            story_visible = self.story_overlay_lines is not None and self.story_overlay_until is not None and now < self.story_overlay_until
+            intro_visible = self.intro_visible_until is not None and now < self.intro_visible_until
+
+            if story_visible:
+                self._draw_story_overlay(screen)
+            elif intro_visible:
                 self._draw_intro(screen)
-            elif self.intro_visible_until is not None and pygame.time.get_ticks() >= self.intro_visible_until:
+            elif self.intro_visible_until is not None and now >= self.intro_visible_until:
                 self.intro_visible_until = None
+
+            if self.story_overlay_until is not None and now >= self.story_overlay_until:
+                self.story_overlay_lines = None
+                self.story_overlay_until = None
 
         self._present_ui_surface(screen)
 
     def _draw_game_hud(self, screen):
-        dist = np.linalg.norm(self.camera.position - CACAU_POS)
-        if dist < 15:
-            message = self.font.render("Estou chegando perto...", True, (255, 255, 255))
-            shadow = self.font.render("Estou chegando perto...", True, (0, 0, 0))
-            screen.blit(shadow, (22, 18 + 2))
-            screen.blit(message, (20, 18))
-
         hint = self.font.render("WASD: mover | Mouse: olhar | ESC: sair", True, (230, 230, 230))
         screen.blit(hint, (20, WINDOW_HEIGHT - 36))
 
@@ -875,38 +963,26 @@ class SceneRenderer:
         overlay.fill((7, 12, 18, 240))
         screen.blit(overlay, (0, 0))
 
-        panel = pygame.Rect(0, 0, 820, 520)
+        panel = pygame.Rect(0, 0, 820, 360)
         panel.center = (WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2)
         self._draw_panel(screen, panel, fill=(15, 22, 32), alpha=230)
 
-        title = self.font_title.render("Cacau e as Pegadas Perdidas", True, (255, 243, 210))
-        title_shadow = self.font_title.render("Cacau e as Pegadas Perdidas", True, (0, 0, 0))
+        title = self.font_menu_title.render("Cacau e as Pegadas Perdidas", True, (255, 243, 210))
+        title_shadow = self.font_menu_title.render("Cacau e as Pegadas Perdidas", True, (0, 0, 0))
         title_rect = title.get_rect(center=(WINDOW_WIDTH // 2, panel.top + 80))
         screen.blit(title_shadow, title_rect.move(3, 3))
         screen.blit(title, title_rect)
 
-        lines = [
-            "Passeio virtual 3D em OpenGL 4.0.",
-            "Siga as pegadas para encontrar a Cacau.",
-            "",
-            "Controles: WASD/Setas — mover | Mouse — olhar | ESC — sair",
-            "",
-            "Câmera em primeira pessoa, iluminação Phong, textura e cena manual.",
-        ]
-        y = panel.top + 150
-        for line in lines:
-            if line:
-                text = self.font.render(line, True, (235, 240, 248))
-                rect = text.get_rect(center=(WINDOW_WIDTH // 2, y))
-                screen.blit(text, rect)
-            y += 32
+        instruction = self.font_menu_text.render("Siga as pegadas para encontrar a Cacau.", True, (235, 240, 248))
+        instruction_rect = instruction.get_rect(center=(WINDOW_WIDTH // 2, panel.top + 165))
+        screen.blit(instruction, instruction_rect)
 
-        self._draw_text_center(screen, "Clique em Começar para jogar", WINDOW_WIDTH // 2, panel.bottom - 118, self.font_large, (225, 235, 245))
+        controls = self.font_menu_text.render("Controles: WASD/Setas — mover | Mouse — olhar | ESC — sair", True, (225, 235, 245))
+        controls_rect = controls.get_rect(center=(WINDOW_WIDTH // 2, panel.top + 215))
+        screen.blit(controls, controls_rect)
 
-        self.start_button.center = (WINDOW_WIDTH // 2, panel.bottom - 70)
-        self.exit_button.center = (WINDOW_WIDTH // 2, panel.bottom - 18)
+        self.start_button.center = (WINDOW_WIDTH // 2, panel.bottom - 52)
         self._draw_button(screen, self.start_button, "Começar", self.start_button.collidepoint(pygame.mouse.get_pos()), base_color=(42, 142, 80))
-        self._draw_button(screen, self.exit_button, "Sair", self.exit_button.collidepoint(pygame.mouse.get_pos()), base_color=(150, 60, 60))
 
     def _draw_intro(self, screen):
         overlay = pygame.Surface(self.display, pygame.SRCALPHA)
@@ -917,22 +993,37 @@ class SceneRenderer:
         panel.center = (WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2)
         self._draw_panel(screen, panel, fill=(20, 26, 38), alpha=190)
 
-        self._draw_text_center(screen, "Cacau desapareceu.", WINDOW_WIDTH // 2, panel.top + 70, self.font_title, (255, 248, 230))
-        self._draw_text_center(screen, "Vou seguir suas pegadas.", WINDOW_WIDTH // 2, panel.top + 130, self.font_title, (255, 248, 230))
-        self._draw_text_center(screen, "Controles: WASD/Setas — mover | Mouse — olhar | ESC — sair", WINDOW_WIDTH // 2, panel.top + 198, self.font, (225, 232, 240))
-        self._draw_text_center(screen, "A tela permanece translúcida até a partida começar.", WINDOW_WIDTH // 2, panel.top + 240, self.font, (170, 184, 200))
+        lines = self.story_overlay_lines or ["Cacau desapareceu.", "Vou seguir suas pegadas."]
+        y = panel.top + 74
+        for i, line in enumerate(lines):
+            font = self.font_large if i == 0 else self.font_story
+            color = (255, 248, 230) if i == 0 else (225, 232, 240)
+            rendered = font.render(line, True, color)
+            rect = rendered.get_rect(center=(WINDOW_WIDTH // 2, y))
+            screen.blit(rendered, rect)
+            y += 42 if i == 0 else 28
+
+        self._draw_text_center(screen, "Controles: WASD/Setas — mover | Mouse — olhar | ESC — sair", WINDOW_WIDTH // 2, panel.bottom - 34, self.font, (225, 232, 240))
 
     def _draw_conclusion(self, screen):
         overlay = pygame.Surface(self.display, pygame.SRCALPHA)
         overlay.fill((5, 8, 12, 220))
         screen.blit(overlay, (0, 0))
 
-        panel = pygame.Rect(0, 0, 720, 320)
+        panel = pygame.Rect(0, 0, 720, 280)
         panel.center = (WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2)
         self._draw_panel(screen, panel, fill=(16, 22, 30), alpha=235, border=(112, 210, 160))
 
-        self._draw_text_center(screen, "Você encontrou a Cacau!", WINDOW_WIDTH // 2, panel.top + 88, self.font_title, (245, 250, 247))
-        self._draw_text_center(screen, "Fim da busca. Obrigado por jogar.", WINDOW_WIDTH // 2, panel.top + 155, self.font_large, (220, 232, 226))
+        self._draw_text_center(screen, "Você encontrou a Cacau!", WINDOW_WIDTH // 2, panel.top + 82, self.font_conclusion_title, (245, 250, 247))
+        if self.conclusion_story_lines:
+            y = panel.top + 140
+            for line in self.conclusion_story_lines:
+                text = self.font_conclusion_text.render(line, True, (220, 232, 226))
+                rect = text.get_rect(center=(WINDOW_WIDTH // 2, y))
+                screen.blit(text, rect)
+                y += 28
+        else:
+            self._draw_text_center(screen, "Fim da busca. Obrigado por jogar.", WINDOW_WIDTH // 2, panel.top + 142, self.font_conclusion_text, (220, 232, 226))
 
         self.conclusion_exit_button.center = (WINDOW_WIDTH // 2, panel.bottom - 64)
         self._draw_button(screen, self.conclusion_exit_button, "Sair", self.conclusion_exit_button.collidepoint(pygame.mouse.get_pos()), base_color=(150, 60, 60))
