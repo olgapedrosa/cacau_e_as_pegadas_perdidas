@@ -102,9 +102,10 @@ YARD_Z_MIN, YARD_Z_MAX = -22, 14
 # Caminho sinuoso das pegadas pelo quintal (waypoints x, z)
 FOOTPRINT_WAYPOINTS = [
     (-6.0, -7.8), (-8.4, -6.1), (-10.0, -3.8), (-11.0, -0.8), (-10.2, 2.2),
-    (-8.4, 4.0), (-6.1, 3.2), (-4.2, 1.4), (-1.5, -0.2), (1.2, -1.2),
-    (4.0, -2.4), (6.8, -2.7), (9.4, -1.4), (11.4, 1.0), (13.0, 3.8),
-    (14.8, 6.2), (16.8, 8.3), (18.8, 10.8),
+    (-8.4, 4.0), (-6.6, 6.2), (-7.8, 8.9), (-10.5, 9.8), (-12.0, 7.2),
+    (-11.2, 4.2), (-8.8, 3.1), (-6.1, 3.2), (-4.2, 1.4), (-1.5, -0.2),
+    (1.2, -1.2), (4.0, -2.4), (6.8, -2.7), (8.8, -0.8), (10.8, 1.4),
+    (12.0, 4.0), (13.0, 6.8), (14.6, 9.2), (16.8, 10.9), (18.8, 10.8),
 ]
 
 # Vegetação espalhada (x, z)
@@ -224,10 +225,10 @@ class SceneRenderer:
         self.program = shaders.create_program()
         glUseProgram(self.program)
 
-        # Jogador começa no quintal, olhando para as pegadas
-        self.camera = camera.Camera(position=(0, 1.6, -8))
-        self.camera.yaw = 75.0
-        self.camera.pitch = -8.0
+        # Jogador começa em frente à porta, já voltado para as pegadas no chão
+        self.camera = camera.Camera(position=(-6.0, 1.6, -6.4))
+        self.camera.yaw = 90.0
+        self.camera.pitch = -10.0
         self.camera.update_vectors()
 
         self.clock = pygame.time.Clock()
@@ -254,6 +255,7 @@ class SceneRenderer:
 
         self.grass_texture = Texture(image_path=os.path.join(images, "grama.png"))
         self.sky_texture = Texture(image_path=os.path.join(images, "ceu.png"))
+        self.food_texture = Texture(image_path=os.path.join(images, "racao.png"))
         self.footprint_texture = Texture(
             image_path=os.path.join(images, "pegada.png"),
             transparent_black=True,
@@ -274,6 +276,7 @@ class SceneRenderer:
         self.sphere_mesh = objects.get_sphere()
         self.plane_mesh = objects.get_plane()
         self.footprint_mesh = objects.get_footprint_quad()
+        self.food_top_mesh = objects.create_footprint_quad(width=0.55, depth=0.55)
 
         self.sky_program = self._create_sky_program()
 
@@ -482,6 +485,7 @@ class SceneRenderer:
         texture_scale=(1.0, 1.0),
         rotation=(0, 0, 0),
         brightness_boost=1.0,
+        double_sided=False,
     ):
         model = make_model_matrix(position, scale, rotation)
         view = self.camera.get_view_matrix()
@@ -518,7 +522,16 @@ class SceneRenderer:
             if tex_scale_loc != -1:
                 glUniform2f(tex_scale_loc, 1.0, 1.0)
 
+        culling_was_enabled = False
+        if double_sided:
+            culling_was_enabled = glIsEnabled(GL_CULL_FACE)
+            if culling_was_enabled:
+                glDisable(GL_CULL_FACE)
+
         mesh.render()
+
+        if double_sided and culling_was_enabled:
+            glEnable(GL_CULL_FACE)
 
     def _render_fence_post(self, x, y, z):
         self.render_object(
@@ -715,6 +728,14 @@ class SceneRenderer:
             color=(160, 210, 240),
         )
 
+        # Pequena bolinha decorativa no canto inferior direito do quintal
+        self.render_object(
+            self.sphere_mesh,
+            position=(YARD_X_MAX - 12.5, 0.18, YARD_Z_MIN + 5.5),
+            scale=(0.18, 0.18, 0.18),
+            color=(111, 80, 222),
+        )
+
         glDisable(GL_POLYGON_OFFSET_FILL)
 
     def render_quintal(self):
@@ -735,8 +756,19 @@ class SceneRenderer:
         self.render_object(
             self.cube_mesh,
             position=(2.5, 0.15, -5.5),
-            scale=(0.35, 0.3, 0.35),
+            scale=(0.25, 0.1, 0.25),
             color=(220, 80, 60),
+            double_sided=True,
+        )
+        self.render_object(
+            self.food_top_mesh,
+            position=(2.5, 0.255, -5.5),
+            scale=(0.70, 0.70, 0.70),
+            color=(255, 255, 255),
+            texture=self.food_texture,
+            use_texture=True,
+            brightness_boost=1.15,
+            double_sided=True,
         )
 
         for tx, tz in TREE_SPOTS:
