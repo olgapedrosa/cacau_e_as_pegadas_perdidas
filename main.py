@@ -52,13 +52,47 @@ void main()
 }
 """
 
+SKY_VERTEX_SHADER = """
+#version 410
+
+layout (location = 0) in vec3 position;
+layout (location = 2) in vec2 texCoord;
+
+uniform mat4 model;
+uniform mat4 view;
+uniform mat4 projection;
+
+out vec2 TexCoord;
+
+void main()
+{
+    TexCoord = texCoord;
+    gl_Position = projection * view * model * vec4(position, 1.0);
+}
+"""
+
+SKY_FRAGMENT_SHADER = """
+#version 410
+
+in vec2 TexCoord;
+
+uniform sampler2D skyTexture;
+
+out vec4 FragColor;
+
+void main()
+{
+    FragColor = texture(skyTexture, TexCoord);
+}
+"""
+
 # Constantes da janela
 WINDOW_WIDTH = 1200
 WINDOW_HEIGHT = 800
 FPS = 60
 
 # Cacau escondida no fundo do quintal, ao fim das pegadas
-CACAU_POS = np.array([13.0, 0.0, 9.0], dtype=np.float32)
+CACAU_POS = np.array([18.8, 0.0, 10.8], dtype=np.float32)
 WIN_DISTANCE = 3.0
 
 # Limites do quintal expandido
@@ -67,19 +101,20 @@ YARD_Z_MIN, YARD_Z_MAX = -22, 14
 
 # Caminho sinuoso das pegadas pelo quintal (waypoints x, z)
 FOOTPRINT_WAYPOINTS = [
-    (0, -6), (3, -4), (7, -2), (9, 2), (7, 7), (3, 10),
-    (-2, 12), (-7, 10), (-11, 6), (-10, 0), (-6, -5),
-    (-1, -9), (4, -11), (10, -8), (14, -3), (15, 3), (13, 9),
+    (-6.0, -7.8), (-8.4, -6.1), (-10.0, -3.8), (-11.0, -0.8), (-10.2, 2.2),
+    (-8.4, 4.0), (-6.1, 3.2), (-4.2, 1.4), (-1.5, -0.2), (1.2, -1.2),
+    (4.0, -2.4), (6.8, -2.7), (9.4, -1.4), (11.4, 1.0), (13.0, 3.8),
+    (14.8, 6.2), (16.8, 8.3), (18.8, 10.8),
 ]
 
 # Vegetação espalhada (x, z)
 TREE_SPOTS = [
-    (-14, -8), (12, -12), (16, 0), (-15, 4), (8, 12),
-    (-10, 14), (0, -14), (-12, -16), (-8, 8), (6, 4),
+    (-14, -8), (12, -12), (16, 0), (-15, 4), (8, 12), (0, -14), (-12, -16), (-8, 8), (6, 4),
 ]
 BUSH_SPOTS = [
-    (4, -7), (-2, 5), (9, 5), (-9, -3), (1, 8),
-    (-5, -12), (11, -5), (-13, 0), (5, -2), (-3, -8),
+    (4, -7, 0.42), (-2, 5, 0.58), (9, 5, 0.72), (-9, -3, 0.46), (1, 8, 0.64),
+    (11, -5, 0.80), (-13, 0, 0.48), (5, -2, 0.36),
+    (17.1, 10.0, 0.78),
 ]
 
 # Cerca de madeira (postes + barras)
@@ -89,7 +124,7 @@ FENCE_BAR_THICK = 0.1
 FENCE_POST_STEP = 2.0
 
 
-def build_yard_footprints(waypoints, step_dist=0.65, lateral=0.16):
+def build_yard_footprints(waypoints, step_dist=2.1, lateral=0.18):
     """Gera pares de pegadas ao longo de waypoints com curvas e mudanças de direção."""
     footprints = []
     for i in range(len(waypoints) - 1):
@@ -218,6 +253,7 @@ class SceneRenderer:
         images = os.path.join(base_dir, "images")
 
         self.grass_texture = Texture(image_path=os.path.join(images, "grama.png"))
+        self.sky_texture = Texture(image_path=os.path.join(images, "ceu.png"))
         self.footprint_texture = Texture(
             image_path=os.path.join(images, "pegada.png"),
             transparent_black=True,
@@ -238,6 +274,8 @@ class SceneRenderer:
         self.sphere_mesh = objects.get_sphere()
         self.plane_mesh = objects.get_plane()
         self.footprint_mesh = objects.get_footprint_quad()
+
+        self.sky_program = self._create_sky_program()
 
         self.ui_program = self._create_ui_program()
         self.ui_texture = glGenTextures(1)
@@ -302,6 +340,21 @@ class SceneRenderer:
 
         fragment = glCreateShader(GL_FRAGMENT_SHADER)
         glShaderSource(fragment, UI_FRAGMENT_SHADER)
+        glCompileShader(fragment)
+
+        program = glCreateProgram()
+        glAttachShader(program, vertex)
+        glAttachShader(program, fragment)
+        glLinkProgram(program)
+        return program
+
+    def _create_sky_program(self):
+        vertex = glCreateShader(GL_VERTEX_SHADER)
+        glShaderSource(vertex, SKY_VERTEX_SHADER)
+        glCompileShader(vertex)
+
+        fragment = glCreateShader(GL_FRAGMENT_SHADER)
+        glShaderSource(fragment, SKY_FRAGMENT_SHADER)
         glCompileShader(fragment)
 
         program = glCreateProgram()
@@ -428,6 +481,7 @@ class SceneRenderer:
         use_texture=False,
         texture_scale=(1.0, 1.0),
         rotation=(0, 0, 0),
+        brightness_boost=1.0,
     ):
         model = make_model_matrix(position, scale, rotation)
         view = self.camera.get_view_matrix()
@@ -451,6 +505,7 @@ class SceneRenderer:
             color[0] / 255.0, color[1] / 255.0, color[2] / 255.0,
         )
         glUniform1i(glGetUniformLocation(self.program, "useTexture"), 1 if use_texture else 0)
+        glUniform1f(glGetUniformLocation(self.program, "brightnessBoost"), float(brightness_boost))
 
         # Texture scale / tiling (default 1,1)
         tex_scale_loc = glGetUniformLocation(self.program, "texScale")
@@ -687,10 +742,29 @@ class SceneRenderer:
         for tx, tz in TREE_SPOTS:
             self._render_tree(tx, tz)
 
-        for bx, bz in BUSH_SPOTS:
-            self._render_bush(bx, bz)
+        for bush in BUSH_SPOTS:
+            if len(bush) == 3:
+                bx, bz, size = bush
+            else:
+                bx, bz = bush
+                size = 0.55
+            self._render_bush(bx, bz, size=size)
 
         self.render_fence()
+
+    def render_sky(self):
+        """Fundo estático em tela cheia, sem depender da câmera."""
+        glDisable(GL_DEPTH_TEST)
+        glUseProgram(self.ui_program)
+        glBindVertexArray(self.ui_vao)
+        glActiveTexture(GL_TEXTURE0)
+        glBindTexture(GL_TEXTURE_2D, self.sky_texture.texture_id)
+        glUniform1i(glGetUniformLocation(self.ui_program, "uiTexture"), 0)
+        glDrawArrays(GL_TRIANGLE_FAN, 0, 4)
+        glBindVertexArray(0)
+        glBindTexture(GL_TEXTURE_2D, 0)
+        glEnable(GL_DEPTH_TEST)
+        glUseProgram(self.program)
 
     def _draw_footprint(self, fp_x, fp_y, fp_z, heading=0.0, flip_x=False):
         """Pegada no chão com rotação conforme a direção do caminho."""
@@ -722,6 +796,7 @@ class SceneRenderer:
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         glUseProgram(self.program)
 
+        self.render_sky()
         self.render_quintal()
         self.render_footprints()
 

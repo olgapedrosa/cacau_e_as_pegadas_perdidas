@@ -42,6 +42,7 @@ uniform vec3 lightPos;
 uniform vec3 viewPos;
 uniform vec3 lightColor;
 uniform bool useTexture;
+uniform float brightnessBoost;
 
 out vec4 FragColor;
 
@@ -74,6 +75,8 @@ void main()
     } else {
         result = (ambient + diffuse + specular) * objectColor;
     }
+
+    result *= brightnessBoost;
 
     if (alpha < 0.05)
         discard;

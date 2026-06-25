@@ -14,12 +14,11 @@ def render_cacau(renderer, position, time_sec):
     
     glDisable(GL_CULL_FACE)
 
-    # --- NOVA ESCALA REDUZIDA ---
-    # Diminuímos proporcionalmente para ficar do tamanho ideal em relação à cerca
-    escala_gato = (0.022, 0.16, 0.022) 
-    
-    # Ajuste preciso para a base do plano tocar o chão (Y=0) com a nova escala
-    posicao_ajustada = (x, y + 0.52, z)
+    # Um pouco maior e com a base apoiada no chão
+    escala_gato = (0.03, 0.20, 0.03)
+
+    # Ajuste para a parte inferior encostar no chão sem flutuar
+    posicao_ajustada = (x, y + 0.25, z)
 
     renderer.render_object(
         renderer.plane_mesh,
@@ -28,7 +27,8 @@ def render_cacau(renderer, position, time_sec):
         color=(255, 255, 255),
         texture=cat_tex,
         use_texture=True,
-        rotation=(90, 45, 0) # 90° em X para ficar em pé, 45° em Y para olhar a trilha
+        rotation=(90, 25, 0), # 90° em X para ficar em pé, 25° em Y para pegar melhor a luz
+        brightness_boost=2.1,
     )
 
     glEnable(GL_CULL_FACE)
