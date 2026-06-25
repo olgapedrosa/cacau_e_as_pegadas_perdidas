@@ -199,7 +199,8 @@ class SceneRenderer:
         self.running = True
 
         self.time_sec = 0.0
-        self.light_pos = np.array([20.0, 10.0, 0.0], dtype=np.float32)
+        # Sol fixo no lado oposto da cena, mantendo a mesma altura e inclinação de tarde.
+        self.light_pos = np.array([-18.0, 13.5, 12.0], dtype=np.float32)
 
         self.game_state = "menu"  # menu | playing | found
         self.intro_visible_until = None
@@ -398,11 +399,6 @@ class SceneRenderer:
 
         if self.game_state == "playing":
             self.camera.update()
-
-        # Luz móvel: lightX = 20*cos(t), lightZ = 20*sin(t)
-        self.light_pos[0] = 20.0 * math.cos(self.time_sec)
-        self.light_pos[2] = 20.0 * math.sin(self.time_sec)
-        self.light_pos[1] = 10.0
 
         if self.game_state == "playing":
             dist = np.linalg.norm(self.camera.position - CACAU_POS)
