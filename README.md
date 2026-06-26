@@ -178,7 +178,7 @@ O funcionamento completo do projeto pode ser visualizado no vídeo disponível n
 
 **🔗 Link do vídeo:**
 
-> **https://coloque-aqui-o-link-do-video**
+> **https://drive.google.com/file/d/1_TfaGR_Pl7U9JjYG5H439DyHyxwpBQ7f/view?usp=sharing**
 
 ---
 
