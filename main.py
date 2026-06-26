@@ -102,7 +102,7 @@ YARD_Z_MIN, YARD_Z_MAX = -22, 14
 
 # Caminho sinuoso das pegadas pelo quintal (waypoints x, z)
 FOOTPRINT_WAYPOINTS = [
-    (-6.0, -7.8), (-8.4, -6.1), (-10.0, -3.8), (-11.0, -0.8), (-10.2, 2.2),
+    (-6.0, -7.8),(-10.0, -3.8), (-11.0, -0.8), (-10.2, 2.2),
     (-8.4, 4.0), (-6.6, 6.2), (-7.8, 8.9), (-10.5, 9.8), (-12.0, 7.2),
     (-11.2, 4.2), (-8.8, 3.1), (-6.1, 3.2), (-4.2, 1.4), (-1.5, -0.2),
     (1.2, -1.2), (4.0, -2.4), (6.8, -2.7), (8.8, -0.8), (10.8, 1.4),
@@ -111,7 +111,8 @@ FOOTPRINT_WAYPOINTS = [
 
 # Vegetação espalhada (x, z)
 TREE_SPOTS = [
-    (-14, -8), (12, -12), (16, 0), (-15, 4), (8, 12), (0, -14), (-12, -16), (-8, 8), (6, 4),
+    (-14, -8), (12, -12), (16, 0), (-15, 4), (8, 12), 
+    (0, -14), (-12, -16), (-8, 8), (6, 4),
 ]
 BUSH_SPOTS = [
     (4, -7, 0.42), (-2, 5, 0.58), (9, 5, 0.72), (-9, -3, 0.46), (1, 8, 0.64),
@@ -124,6 +125,7 @@ FENCE_COLOR = (160, 100, 50)
 FENCE_POST_SCALE = (0.15, 1.5, 0.15)
 FENCE_BAR_THICK = 0.1
 FENCE_POST_STEP = 2.0
+PLAYER_COLLISION_RADIUS = 0.45
 
 
 def build_yard_footprints(waypoints, step_dist=2.1, lateral=0.18):
@@ -209,6 +211,46 @@ def make_model_matrix(position, scale=(1, 1, 1), rotation=(0, 0, 0)):
     return T @ R @ S
 
 
+def clamp(value, min_value, max_value):
+    return max(min_value, min(value, max_value))
+
+
+def resolve_circle_aabb(position, radius, box_min, box_max):
+    closest_x = clamp(position[0], box_min[0], box_max[0])
+    closest_z = clamp(position[2], box_min[1], box_max[1])
+    dx = position[0] - closest_x
+    dz = position[2] - closest_z
+    dist_sq = dx * dx + dz * dz
+
+    if dist_sq >= radius * radius:
+        return position
+
+    if dist_sq > 1e-8:
+        dist = math.sqrt(dist_sq)
+        push = radius - dist
+        position = position.copy()
+        position[0] += (dx / dist) * push
+        position[2] += (dz / dist) * push
+        return position
+
+    left = abs(position[0] - box_min[0])
+    right = abs(box_max[0] - position[0])
+    back = abs(position[2] - box_min[1])
+    front = abs(box_max[1] - position[2])
+    side = min(left, right, back, front)
+
+    position = position.copy()
+    if side == left:
+        position[0] = box_min[0] - radius
+    elif side == right:
+        position[0] = box_max[0] + radius
+    elif side == back:
+        position[2] = box_min[1] - radius
+    else:
+        position[2] = box_max[1] + radius
+    return position
+
+
 class SceneRenderer:
     def __init__(self):
         pygame.init()
@@ -225,6 +267,11 @@ class SceneRenderer:
 
         self.program = shaders.create_program()
         glUseProgram(self.program)
+
+        try:
+            pygame.mixer.init()
+        except Exception:
+            pass
 
         # Jogador começa em frente à porta, já voltado para as pegadas no chão
         self.camera = camera.Camera(position=(-6.0, 1.6, -6.4))
@@ -269,6 +316,7 @@ class SceneRenderer:
 
         base_dir = os.path.dirname(os.path.abspath(__file__))
         images = os.path.join(base_dir, "images")
+        music_path = os.path.join(base_dir, "music.mp3")
 
         self.grass_texture = Texture(image_path=os.path.join(images, "grama.png"))
         self.sky_texture = Texture(image_path=os.path.join(images, "ceu.png"))
@@ -295,6 +343,12 @@ class SceneRenderer:
         self.footprint_mesh = objects.get_footprint_quad()
         self.food_top_mesh = objects.create_footprint_quad(width=0.55, depth=0.55)
 
+        self.house_collision = ((-10.0, -14.0), (-2.0, -8.0))
+        self.tree_trunk_collision_radius = 1.15
+        self.tree_foliage_collision_radius = 1.55
+        self.tree_collision_height_margin = 0.0
+        self.tree_collision_spots = TREE_SPOTS
+
         self.sky_program = self._create_sky_program()
 
         self.ui_program = self._create_ui_program()
@@ -302,6 +356,14 @@ class SceneRenderer:
         self.ui_vao = glGenVertexArrays(1)
         self.ui_vbo = glGenBuffers(1)
         self._setup_ui_quad()
+
+        try:
+            if os.path.exists(music_path):
+                pygame.mixer.music.load(music_path)
+                pygame.mixer.music.set_volume(0.5)
+                pygame.mixer.music.play(-1)
+        except Exception:
+            pass
 
         self._sync_input_mode()
         self._print_intro()
@@ -397,6 +459,34 @@ class SceneRenderer:
                 self.conclusion_story_lines = textwrap.wrap("Cacau! Finalmente te encontrei. Vamos para casa.", width=72)
                 self._set_state("found")
                 print("\n>>> Você encontrou a Cacau! <<<\n")
+
+    def _apply_world_collision(self):
+        position = self.camera.position.copy()
+
+        wall_margin = PLAYER_COLLISION_RADIUS
+        position[0] = clamp(position[0], YARD_X_MIN + wall_margin, YARD_X_MAX - wall_margin)
+        position[2] = clamp(position[2], YARD_Z_MIN + wall_margin, YARD_Z_MAX - wall_margin)
+
+        position = resolve_circle_aabb(position, PLAYER_COLLISION_RADIUS, *self.house_collision)
+
+        for tree_x, tree_z in self.tree_collision_spots:
+            for tree_radius in (self.tree_trunk_collision_radius, self.tree_foliage_collision_radius):
+                dx = position[0] - tree_x
+                dz = position[2] - tree_z
+                dist_sq = dx * dx + dz * dz
+                min_dist = tree_radius + PLAYER_COLLISION_RADIUS
+                if dist_sq < min_dist * min_dist:
+                    if dist_sq > 1e-8:
+                        dist = math.sqrt(dist_sq)
+                        push = min_dist - dist
+                        position[0] += (dx / dist) * push
+                        position[2] += (dz / dist) * push
+                    else:
+                        position[0] += min_dist
+
+        self.camera.position[0] = position[0]
+        self.camera.position[2] = position[2]
+        self.camera._apply_ground_collision()
 
     def _draw_text_center(self, surface, text, center_x, center_y, font, color):
         rendered = font.render(text, True, color)
@@ -545,6 +635,7 @@ class SceneRenderer:
 
         if self.game_state == "playing":
             self.camera.update()
+            self._apply_world_collision()
             self._check_story_triggers()
 
     def _get_projection(self):
@@ -1039,6 +1130,10 @@ class SceneRenderer:
 
         pygame.mouse.set_visible(True)
         pygame.event.set_grab(False)
+        try:
+            pygame.mixer.music.stop()
+        except Exception:
+            pass
         pygame.quit()
         sys.exit()
 
